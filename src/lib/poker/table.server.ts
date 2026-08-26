@@ -45,13 +45,15 @@ export type TableRow = {
   turn_seconds: number;
   game_variant: string;
   special_rules: Record<string, unknown> | null;
+  min_buyin: number;
+  max_buyin: number;
 };
 
 export type PlayerRow = {
   id: string;
   table_id: string;
   user_id: string;
-  seat: number;
+  seat: number | null;
   display_name: string;
   chips: number;
   sitting_out: boolean;
@@ -74,13 +76,13 @@ export async function getPlayers(db: AdminClient, tableId: string): Promise<Play
     .from("table_players")
     .select("*")
     .eq("table_id", tableId)
-    .order("seat");
+    .order("seat", { nullsFirst: false });
   if (error) throw new Error(error.message);
   return (data ?? []) as PlayerRow[];
 }
 
 export function firstFreeSeat(players: PlayerRow[]): number {
-  const taken = new Set(players.map((p) => p.seat));
+  const taken = new Set(players.map((p) => p.seat).filter((s): s is number => s !== null));
   for (let i = 0; i < MAX_SEATS; i++) if (!taken.has(i)) return i;
   throw new Error("La mesa está llena");
 }
@@ -89,6 +91,7 @@ export async function displayNameFor(db: AdminClient, userId: string): Promise<s
   const { data } = await db.from("profiles").select("display_name").eq("id", userId).maybeSingle();
   return data?.display_name ?? "Jugador";
 }
+
 
 async function loadLatestHand(db: AdminClient, tableId: string) {
   const { data, error } = await db
