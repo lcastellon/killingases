@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { PublicHandState, SpecialRules } from "./engine";
+import { assertHostClaims, isHostEmail } from "./host";
 
 export type TableSnapshot = {
   table: {
@@ -56,6 +57,7 @@ export const createTable = createServerFn({ method: "POST" })
     }) => input,
   )
   .handler(async ({ data, context }) => {
+    assertHostClaims(context.claims);
     const { admin, makeCode, displayNameFor } = await import("./table.server");
     const db = await admin();
     const bigBlind = Math.max(2, Math.floor(data.bigBlind ?? 50));
@@ -141,6 +143,7 @@ export const setPlayerChips = createServerFn({ method: "POST" })
     delta: Math.trunc(Number(input.delta ?? 0)),
   }))
   .handler(async ({ data, context }) => {
+    assertHostClaims(context.claims);
     const { admin, getTableByCode, adjustPlayerChips } = await import("./table.server");
     const db = await admin();
     const table = await getTableByCode(db, data.code);
@@ -231,7 +234,8 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
       me: {
         userId: context.userId,
         seat: mine?.seat ?? null,
-        isHost: table.host_id === context.userId,
+        isHost:
+          table.host_id === context.userId && isHostEmail(context.claims.email as string | undefined),
         chips: mine?.chips ?? 0,
         isSpectator: !mine || mine.seat === null,
       },
@@ -244,6 +248,7 @@ export const dealHand = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { code: string }) => ({ code: String(input.code ?? "").trim().toUpperCase() }))
   .handler(async ({ data, context }) => {
+    assertHostClaims(context.claims);
     const { admin, getTableByCode, dealNewHand } = await import("./table.server");
     const db = await admin();
     const table = await getTableByCode(db, data.code);

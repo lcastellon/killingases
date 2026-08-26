@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { createTable, joinTable } from "@/lib/poker/table.functions";
+import { isHostEmail } from "@/lib/poker/host";
 import { PlayingCard } from "@/components/poker/PlayingCard";
 
 export const Route = createFileRoute("/")({
@@ -31,6 +32,7 @@ function Home() {
   const create = useServerFn(createTable);
   const join = useServerFn(joinTable);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  const [isHost, setIsHost] = useState(false);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [bigBlind, setBigBlind] = useState(50);
@@ -39,7 +41,10 @@ function Home() {
   const [maxBuyin, setMaxBuyin] = useState(20000);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSignedIn(Boolean(data.session)));
+    supabase.auth.getSession().then(({ data }) => {
+      setSignedIn(Boolean(data.session));
+      setIsHost(isHostEmail(data.session?.user.email));
+    });
   }, []);
 
   const requireAuth = () => {
@@ -128,6 +133,7 @@ function Home() {
         </section>
 
         <section className="mt-10 space-y-4">
+          {isHost ? (
           <div className="rounded-2xl border border-brass-soft/40 bg-card/90 p-4">
             <h2 className="text-xl text-foreground">Crear mesa</h2>
             <div className="mt-3 grid grid-cols-2 gap-3">
@@ -190,6 +196,15 @@ function Home() {
               Crear mesa
             </button>
           </div>
+          ) : (
+            <div className="rounded-2xl border border-border/70 bg-card/70 p-4">
+              <h2 className="text-xl text-foreground">Eres invitado</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Solo el anfitrión del club crea las mesas y reparte las fichas. Pídele el código y
+                entra aquí abajo.
+              </p>
+            </div>
+          )}
 
           <div className="rounded-2xl border border-border/70 bg-card/70 p-4">
             <h2 className="text-xl text-foreground">Unirse con código</h2>
