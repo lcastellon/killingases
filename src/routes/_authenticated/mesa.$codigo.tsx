@@ -153,7 +153,7 @@ function TableRoom() {
       <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-4 py-4">
         <header className="flex items-center justify-between gap-3">
           <Link to="/" className="font-display text-xl tracking-widest text-primary">
-            MATA ASES
+            Killing Ases Poker Club
           </Link>
           <button
             type="button"
@@ -169,7 +169,7 @@ function TableRoom() {
 
         <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
           <span>
-            Ciegas {data.table.smallBlind}/{data.table.bigBlind} · Omaha No Limit
+            Ciegas {data.table.smallBlind}/{data.table.bigBlind} · No Limit Omaha
           </span>
           <span>{hand ? `Mano #${hand.handNo} · ${STREET_LABEL[hand.street]}` : "En lobby"}</span>
         </div>
