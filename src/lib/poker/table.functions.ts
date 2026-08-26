@@ -17,10 +17,12 @@ export type TableSnapshot = {
     turnSeconds: number;
     gameVariant: string;
     specialRules: SpecialRules;
+    minBuyin: number;
+    maxBuyin: number;
   };
   players: {
     userId: string;
-    seat: number;
+    seat: number | null;
     displayName: string;
     chips: number;
     sittingOut: boolean;
@@ -29,9 +31,16 @@ export type TableSnapshot = {
   }[];
   hand: PublicHandState | null;
   myCards: string[] | null;
-  me: { userId: string; seat: number | null; isHost: boolean };
+  me: {
+    userId: string;
+    seat: number | null;
+    isHost: boolean;
+    chips: number;
+    isSpectator: boolean;
+  };
   serverNow: string;
 };
+
 
 export const createTable = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -42,6 +51,8 @@ export const createTable = createServerFn({ method: "POST" })
       bigBlind?: number;
       startingChips?: number;
       turnSeconds?: number;
+      minBuyin?: number;
+      maxBuyin?: number;
     }) => input,
   )
   .handler(async ({ data, context }) => {
@@ -51,6 +62,8 @@ export const createTable = createServerFn({ method: "POST" })
     const smallBlind = Math.max(1, Math.floor(data.smallBlind ?? Math.floor(bigBlind / 2)));
     const startingChips = Math.max(bigBlind * 10, Math.floor(data.startingChips ?? 5000));
     const turnSeconds = Math.min(120, Math.max(10, Math.floor(data.turnSeconds ?? 30)));
+    const minBuyin = Math.max(bigBlind * 2, Math.floor(data.minBuyin ?? bigBlind * 20));
+    const maxBuyin = Math.max(minBuyin, Math.floor(data.maxBuyin ?? minBuyin * 10));
 
     let code = makeCode();
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -75,18 +88,21 @@ export const createTable = createServerFn({ method: "POST" })
         turn_seconds: turnSeconds,
         game_variant: "omaha",
         special_rules: {},
+        min_buyin: minBuyin,
+        max_buyin: maxBuyin,
       })
       .select("id, code")
       .single();
     if (error) throw new Error(error.message);
 
     const displayName = await displayNameFor(db, context.userId);
+    const hostChips = Math.min(maxBuyin, Math.max(minBuyin, startingChips));
     const { error: seatError } = await db.from("table_players").insert({
       table_id: table.id,
       user_id: context.userId,
       seat: 0,
       display_name: displayName,
-      chips: startingChips,
+      chips: hostChips,
     });
     if (seatError) throw new Error(seatError.message);
 
@@ -97,27 +113,40 @@ export const joinTable = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { code: string }) => ({ code: String(input.code ?? "").trim().toUpperCase() }))
   .handler(async ({ data, context }) => {
-    const { admin, getTableByCode, getPlayers, firstFreeSeat, displayNameFor } = await import(
-      "./table.server"
-    );
+    const { admin, getTableByCode, getPlayers, displayNameFor } = await import("./table.server");
     const db = await admin();
     const table = await getTableByCode(db, data.code);
     const players = await getPlayers(db, table.id);
     const mine = players.find((p) => p.user_id === context.userId);
     if (mine) return { code: table.code };
 
-    const seat = firstFreeSeat(players);
+    // New players enter as spectators with 0 chips; only the host hands out chips.
     const displayName = await displayNameFor(db, context.userId);
     const { error } = await db.from("table_players").insert({
       table_id: table.id,
       user_id: context.userId,
-      seat,
+      seat: null,
       display_name: displayName,
-      chips: table.starting_chips,
+      chips: 0,
     });
     if (error) throw new Error(error.message);
     return { code: table.code };
   });
+
+export const setPlayerChips = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { code: string; userId: string; delta: number }) => ({
+    code: String(input.code ?? "").trim().toUpperCase(),
+    userId: String(input.userId ?? ""),
+    delta: Math.trunc(Number(input.delta ?? 0)),
+  }))
+  .handler(async ({ data, context }) => {
+    const { admin, getTableByCode, adjustPlayerChips } = await import("./table.server");
+    const db = await admin();
+    const table = await getTableByCode(db, data.code);
+    return adjustPlayerChips(db, table, context.userId, data.userId, data.delta);
+  });
+
 
 export const leaveTable = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -139,14 +168,15 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { code: string }) => ({ code: String(input.code ?? "").trim().toUpperCase() }))
   .handler(async ({ data, context }): Promise<TableSnapshot> => {
-    const { admin, getTableByCode, getPlayers, enforceTurnTimer, touchPresence } = await import(
-      "./table.server"
-    );
+    const { admin, getTableByCode, getPlayers, enforceTurnTimer, touchPresence, reconcileSeats } =
+      await import("./table.server");
     const db = await admin();
     const table = await getTableByCode(db, data.code);
     await enforceTurnTimer(db, table);
     await touchPresence(db, table.id, context.userId);
+    await reconcileSeats(db, table);
     const players = await getPlayers(db, table.id);
+
 
     const { data: handRow } = await db
       .from("hands")
@@ -184,6 +214,8 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
         turnSeconds: table.turn_seconds,
         gameVariant: table.game_variant,
         specialRules: (table.special_rules ?? {}) as SpecialRules,
+        minBuyin: table.min_buyin,
+        maxBuyin: table.max_buyin,
       },
       players: players.map((p) => ({
         userId: p.user_id,
@@ -200,7 +232,10 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
         userId: context.userId,
         seat: mine?.seat ?? null,
         isHost: table.host_id === context.userId,
+        chips: mine?.chips ?? 0,
+        isSpectator: !mine || mine.seat === null,
       },
+
       serverNow: new Date().toISOString(),
     };
   });

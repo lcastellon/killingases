@@ -117,6 +117,8 @@ export type Database = {
           hand_no: number
           host_id: string
           id: string
+          max_buyin: number
+          min_buyin: number
           name: string
           small_blind: number
           special_rules: Json
@@ -134,6 +136,8 @@ export type Database = {
           hand_no?: number
           host_id: string
           id?: string
+          max_buyin?: number
+          min_buyin?: number
           name?: string
           small_blind?: number
           special_rules?: Json
@@ -151,6 +155,8 @@ export type Database = {
           hand_no?: number
           host_id?: string
           id?: string
+          max_buyin?: number
+          min_buyin?: number
           name?: string
           small_blind?: number
           special_rules?: Json
@@ -186,7 +192,7 @@ export type Database = {
           id: string
           joined_at: string
           last_seen_at: string
-          seat: number
+          seat: number | null
           sitting_out: boolean
           table_id: string
           user_id: string
@@ -197,7 +203,7 @@ export type Database = {
           id?: string
           joined_at?: string
           last_seen_at?: string
-          seat: number
+          seat?: number | null
           sitting_out?: boolean
           table_id: string
           user_id: string
@@ -208,7 +214,7 @@ export type Database = {
           id?: string
           joined_at?: string
           last_seen_at?: string
-          seat?: number
+          seat?: number | null
           sitting_out?: boolean
           table_id?: string
           user_id?: string

@@ -35,6 +35,8 @@ function Home() {
   const [busy, setBusy] = useState(false);
   const [bigBlind, setBigBlind] = useState(50);
   const [startingChips, setStartingChips] = useState(5000);
+  const [minBuyin, setMinBuyin] = useState(1000);
+  const [maxBuyin, setMaxBuyin] = useState(20000);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSignedIn(Boolean(data.session)));
@@ -55,6 +57,8 @@ function Home() {
           bigBlind,
           smallBlind: Math.max(1, Math.floor(bigBlind / 2)),
           startingChips,
+          minBuyin,
+          maxBuyin,
         },
       });
       navigate({ to: "/mesa/$codigo", params: { codigo: result.code } });
@@ -149,6 +153,34 @@ function Home() {
                 />
               </label>
             </div>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <label className="text-xs text-muted-foreground">
+                Compra mínima
+                <input
+                  type="number"
+                  min={1}
+                  step={100}
+                  value={minBuyin}
+                  onChange={(e) => setMinBuyin(Math.max(1, Number(e.target.value)))}
+                  className="tabular mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-base text-foreground outline-none focus:border-brass"
+                />
+              </label>
+              <label className="text-xs text-muted-foreground">
+                Compra máxima
+                <input
+                  type="number"
+                  min={1}
+                  step={100}
+                  value={maxBuyin}
+                  onChange={(e) => setMaxBuyin(Math.max(1, Number(e.target.value)))}
+                  className="tabular mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-base text-foreground outline-none focus:border-brass"
+                />
+              </label>
+            </div>
+            <p className="mt-2 text-[0.7rem] text-muted-foreground">
+              Como anfitrión decides cuántas fichas recibe cada jugador; los demás entran como
+              espectadores hasta alcanzar la compra mínima.
+            </p>
             <button
               type="button"
               disabled={busy}

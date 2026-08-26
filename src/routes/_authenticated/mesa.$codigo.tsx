@@ -4,7 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
-import { act, dealHand, getTableSnapshot, joinTable, leaveTable } from "@/lib/poker/table.functions";
+import {
+  act,
+  dealHand,
+  getTableSnapshot,
+  joinTable,
+  leaveTable,
+  setPlayerChips,
+} from "@/lib/poker/table.functions";
 import { legalActions, type HandState } from "@/lib/poker/engine";
 import { evaluateOmaha } from "@/lib/poker/cards";
 import { PlayingCard } from "@/components/poker/PlayingCard";
@@ -13,6 +20,8 @@ import { ActionBar } from "@/components/poker/ActionBar";
 import { useTableRealtime } from "@/hooks/useTableRealtime";
 import { TurnTimer } from "@/components/poker/TurnTimer";
 import { Showdown } from "@/components/poker/Showdown";
+import { ChipBank } from "@/components/poker/ChipBank";
+
 
 export const Route = createFileRoute("/_authenticated/mesa/$codigo")({
   head: ({ params }) => ({
@@ -48,6 +57,7 @@ function TableRoom() {
   const sendAction = useServerFn(act);
   const join = useServerFn(joinTable);
   const leave = useServerFn(leaveTable);
+  const adjustChips = useServerFn(setPlayerChips);
   const [busy, setBusy] = useState(false);
 
   const query = useQuery({
@@ -68,9 +78,15 @@ function TableRoom() {
   const data = query.data;
   const hand = data?.hand ?? null;
 
+  const spectators = useMemo(
+    () => (data ? data.players.filter((p) => p.seat === null) : []),
+    [data],
+  );
+
   const seats: SeatView[] = useMemo(() => {
     if (!data) return [];
     return data.players
+      .filter((p): p is (typeof data.players)[number] & { seat: number } => p.seat !== null)
       .slice()
       .sort((a, b) => a.seat - b.seat)
       .map((p) => {
@@ -97,6 +113,7 @@ function TableRoom() {
         } satisfies SeatView;
       });
   }, [data, hand]);
+
 
   const legal = useMemo(() => {
     if (!hand || data?.me.seat === null || data?.me.seat === undefined) return null;
@@ -146,7 +163,10 @@ function TableRoom() {
   }
 
   const amSeated = data.me.seat !== null;
-  const canDeal = data.me.isHost && (!hand || hand.complete) && data.players.length >= 2;
+  const amAtTable = data.players.some((p) => p.userId === data.me.userId);
+  const seatedCount = data.players.filter((p) => p.seat !== null).length;
+  const canDeal = data.me.isHost && (!hand || hand.complete) && seatedCount >= 2;
+
 
   return (
     <main className="felt-surface min-h-screen pb-4">
@@ -205,6 +225,59 @@ function TableRoom() {
           </div>
         </section>
 
+        {/* Mis fichas */}
+        {amAtTable && (
+          <section className="mt-4 flex items-center justify-between rounded-2xl border border-brass-soft/40 bg-card/80 p-3">
+            <div>
+              <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+                Tus fichas disponibles
+              </p>
+              <p className="tabular font-display text-3xl text-primary">
+                {data.me.chips.toLocaleString("es-MX")}
+              </p>
+            </div>
+            <p className="max-w-[55%] text-right text-xs text-muted-foreground">
+              {amSeated
+                ? `Compra mínima ${data.table.minBuyin.toLocaleString("es-MX")} · máxima ${data.table.maxBuyin.toLocaleString("es-MX")}`
+                : `Necesitas ${data.table.minBuyin.toLocaleString("es-MX")} fichas para sentarte. El anfitrión las reparte.`}
+            </p>
+          </section>
+        )}
+
+        {/* Espectadores */}
+        {spectators.length > 0 && (
+          <section className="mt-3 rounded-2xl border border-border/50 bg-card/50 p-3">
+            <h2 className="text-sm text-muted-foreground">Esperando fichas</h2>
+            <ul className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
+              {spectators.map((p) => (
+                <li key={p.userId} className="rounded-full border border-border/60 px-2 py-0.5">
+                  {p.displayName} · {p.chips.toLocaleString("es-MX")}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {/* Banco de fichas (solo anfitrión) */}
+        {data.me.isHost && (
+          <div className="mt-3">
+            <ChipBank
+              players={data.players.map((p) => ({
+                userId: p.userId,
+                displayName: p.displayName,
+                chips: p.chips,
+                seat: p.seat,
+              }))}
+              minBuyin={data.table.minBuyin}
+              maxBuyin={data.table.maxBuyin}
+              disabled={busy || Boolean(hand && !hand.complete)}
+              onAdjust={(userId, delta) =>
+                void run(() => adjustChips({ data: { code: codigo, userId, delta } }))
+              }
+            />
+          </div>
+        )}
+
         {/* Mis cartas */}
         {data.myCards && (
           <section className="mt-4 flex items-end justify-between rounded-2xl border border-brass-soft/40 bg-card/80 p-3">
@@ -221,6 +294,7 @@ function TableRoom() {
             </div>
           </section>
         )}
+
 
         {/* Acciones */}
         <section className="mt-4 space-y-3">
@@ -268,16 +342,17 @@ function TableRoom() {
             </div>
           )}
 
-          {!amSeated && (
+          {!amAtTable && (
             <button
               type="button"
               disabled={busy}
               onClick={() => void run(() => join({ data: { code: codigo } }))}
               className="w-full rounded-xl bg-primary py-3 font-display text-lg tracking-wide text-primary-foreground disabled:opacity-50"
             >
-              Sentarme en la mesa
+              Entrar a la mesa
             </button>
           )}
+
 
           {canDeal && (
             <button
@@ -310,7 +385,7 @@ function TableRoom() {
         ) : null}
 
         <footer className="mt-auto pt-6 text-center">
-          {amSeated && (
+          {amAtTable && (
             <button
               type="button"
               disabled={busy}
