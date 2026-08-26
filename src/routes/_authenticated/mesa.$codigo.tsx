@@ -163,7 +163,10 @@ function TableRoom() {
   }
 
   const amSeated = data.me.seat !== null;
-  const canDeal = data.me.isHost && (!hand || hand.complete) && data.players.length >= 2;
+  const amAtTable = data.players.some((p) => p.userId === data.me.userId);
+  const seatedCount = data.players.filter((p) => p.seat !== null).length;
+  const canDeal = data.me.isHost && (!hand || hand.complete) && seatedCount >= 2;
+
 
   return (
     <main className="felt-surface min-h-screen pb-4">
