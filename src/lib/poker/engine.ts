@@ -10,8 +10,8 @@ export type SpecialRules = {
   holeCards?: number;
   /** Exact number of hole cards that must be used at showdown. */
   mustUseHole?: number;
-  /** Free-form flags for future rules. */
-  [key: string]: unknown;
+  /** Free-form JSON flags for future rules. */
+  [key: string]: string | number | boolean | null | undefined;
 };
 
 export const DEFAULT_TURN_SECONDS = 30;

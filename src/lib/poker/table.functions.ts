@@ -16,7 +16,7 @@ export type TableSnapshot = {
     handNo: number;
     turnSeconds: number;
     gameVariant: string;
-    specialRules: Record<string, unknown>;
+    specialRules: SpecialRules;
   };
   players: {
     userId: string;
@@ -183,7 +183,7 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
         handNo: table.hand_no,
         turnSeconds: table.turn_seconds,
         gameVariant: table.game_variant,
-        specialRules: (table.special_rules ?? {}) as Record<string, unknown>,
+        specialRules: (table.special_rules ?? {}) as SpecialRules,
       },
       players: players.map((p) => ({
         userId: p.user_id,
