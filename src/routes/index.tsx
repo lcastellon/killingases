@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
@@ -31,21 +31,33 @@ function Home() {
   const navigate = useNavigate();
   const create = useServerFn(createTable);
   const join = useServerFn(joinTable);
+  const myTables = useServerFn(listMyTables);
+  const close = useServerFn(closeTable);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [isHost, setIsHost] = useState(false);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [bigBlind, setBigBlind] = useState(50);
-  const [startingChips, setStartingChips] = useState(5000);
   const [minBuyin, setMinBuyin] = useState(1000);
   const [maxBuyin, setMaxBuyin] = useState(20000);
+  const [tables, setTables] = useState<Awaited<ReturnType<typeof listMyTables>>>([]);
+
+  const loadTables = useCallback(async () => {
+    try {
+      setTables(await myTables({}));
+    } catch {
+      setTables([]);
+    }
+  }, [myTables]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSignedIn(Boolean(data.session));
-      setIsHost(isHostEmail(data.session?.user.email));
+      const host = isHostEmail(data.session?.user.email);
+      setIsHost(host);
+      if (host) void loadTables();
     });
-  }, []);
+  }, [loadTables]);
 
   const requireAuth = () => {
     if (signedIn) return true;
