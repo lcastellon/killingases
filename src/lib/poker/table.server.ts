@@ -112,15 +112,6 @@ async function persistHand(db: AdminClient, handId: string, state: HandState) {
     .eq("hand_id", handId);
   if (secretError) throw new Error(secretError.message);
 
-  if (state.complete) {
-    for (const p of state.players) {
-      await db
-        .from("table_players")
-        .update({ chips: p.chips })
-        .eq("table_id_placeholder_never", null as never);
-      break;
-    }
-  }
 }
 
 async function syncChips(db: AdminClient, tableId: string, state: HandState) {
