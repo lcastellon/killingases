@@ -146,7 +146,10 @@ export function evaluate5(cards: Card[]): HandScore {
     category,
     name: CATEGORY_NAMES[category]!,
     cards: cards.slice(),
+    holeUsed: [],
+    boardUsed: [],
   };
+
 }
 
 function combinations<T>(items: T[], k: number): T[][] {
