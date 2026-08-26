@@ -114,8 +114,8 @@ function Home() {
             <PlayingCard card="Tc" size="lg" className="rotate-6" />
           </div>
           <h1 className="mt-8 text-5xl leading-none text-foreground">
-            Omaha No Limit
-            <span className="block text-primary">con tus amigos</span>
+            No Limit Omaha{"\n\n"}
+            <span className="block text-primary">{"\n"}</span>
           </h1>
           <p className="mt-4 text-sm text-muted-foreground">
             Crea una mesa privada, comparte el código y reparte. Cada quien juega desde su teléfono,
