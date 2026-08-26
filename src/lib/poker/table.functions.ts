@@ -214,6 +214,8 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
         turnSeconds: table.turn_seconds,
         gameVariant: table.game_variant,
         specialRules: (table.special_rules ?? {}) as SpecialRules,
+        minBuyin: table.min_buyin,
+        maxBuyin: table.max_buyin,
       },
       players: players.map((p) => ({
         userId: p.user_id,
@@ -230,7 +232,10 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
         userId: context.userId,
         seat: mine?.seat ?? null,
         isHost: table.host_id === context.userId,
+        chips: mine?.chips ?? 0,
+        isSpectator: !mine || mine.seat === null,
       },
+
       serverNow: new Date().toISOString(),
     };
   });
