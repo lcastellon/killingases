@@ -4,7 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
-import { act, dealHand, getTableSnapshot, joinTable, leaveTable } from "@/lib/poker/table.functions";
+import {
+  act,
+  dealHand,
+  getTableSnapshot,
+  joinTable,
+  leaveTable,
+  setPlayerChips,
+} from "@/lib/poker/table.functions";
 import { legalActions, type HandState } from "@/lib/poker/engine";
 import { evaluateOmaha } from "@/lib/poker/cards";
 import { PlayingCard } from "@/components/poker/PlayingCard";
@@ -13,6 +20,8 @@ import { ActionBar } from "@/components/poker/ActionBar";
 import { useTableRealtime } from "@/hooks/useTableRealtime";
 import { TurnTimer } from "@/components/poker/TurnTimer";
 import { Showdown } from "@/components/poker/Showdown";
+import { ChipBank } from "@/components/poker/ChipBank";
+
 
 export const Route = createFileRoute("/_authenticated/mesa/$codigo")({
   head: ({ params }) => ({
