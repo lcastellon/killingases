@@ -73,7 +73,6 @@ function Home() {
         data: {
           bigBlind,
           smallBlind: Math.max(1, Math.floor(bigBlind / 2)),
-          startingChips,
           minBuyin,
           maxBuyin,
         },
