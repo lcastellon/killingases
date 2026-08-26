@@ -385,7 +385,7 @@ function TableRoom() {
         ) : null}
 
         <footer className="mt-auto pt-6 text-center">
-          {amSeated && (
+          {amAtTable && (
             <button
               type="button"
               disabled={busy}
