@@ -342,16 +342,17 @@ function TableRoom() {
             </div>
           )}
 
-          {!amSeated && (
+          {!amAtTable && (
             <button
               type="button"
               disabled={busy}
               onClick={() => void run(() => join({ data: { code: codigo } }))}
               className="w-full rounded-xl bg-primary py-3 font-display text-lg tracking-wide text-primary-foreground disabled:opacity-50"
             >
-              Sentarme en la mesa
+              Entrar a la mesa
             </button>
           )}
+
 
           {canDeal && (
             <button
