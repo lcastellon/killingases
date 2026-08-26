@@ -217,6 +217,60 @@ function Home() {
             </div>
           )}
 
+          {isHost && tables.length > 0 && (
+            <div className="rounded-2xl border border-brass-soft/40 bg-card/80 p-4">
+              <h2 className="text-xl text-foreground">Tus mesas abiertas</h2>
+              <ul className="mt-3 space-y-2">
+                {tables.map((t) => (
+                  <li
+                    key={t.code}
+                    className="flex items-center gap-2 rounded-xl border border-border/60 bg-felt-deep/40 p-2"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-foreground">
+                        {t.name} ·{" "}
+                        <span className="font-display tracking-[0.2em] text-primary">{t.code}</span>
+                      </p>
+                      <p className="tabular text-xs text-muted-foreground">
+                        {t.players} jugador{t.players === 1 ? "" : "es"} · ciegas {t.smallBlind}/
+                        {t.bigBlind} · compra {t.minBuyin.toLocaleString("es-MX")}–
+                        {t.maxBuyin.toLocaleString("es-MX")} · mano #{t.handNo}
+                      </p>
+                    </div>
+                    <Link
+                      to="/mesa/$codigo"
+                      params={{ codigo: t.code }}
+                      className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground"
+                    >
+                      Abrir
+                    </Link>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={async () => {
+                        setBusy(true);
+                        try {
+                          await close({ data: { code: t.code } });
+                          await loadTables();
+                          toast.success("Mesa cerrada");
+                        } catch (error) {
+                          toast.error(
+                            error instanceof Error ? error.message : "No pudimos cerrar la mesa",
+                          );
+                        } finally {
+                          setBusy(false);
+                        }
+                      }}
+                      className="rounded-lg border border-border/70 px-3 py-1.5 text-sm text-muted-foreground hover:text-destructive disabled:opacity-50"
+                    >
+                      Cerrar
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div className="rounded-2xl border border-border/70 bg-card/70 p-4">
             <h2 className="text-xl text-foreground">Unirse con código</h2>
             <div className="mt-3 flex gap-2">
