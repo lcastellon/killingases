@@ -142,11 +142,79 @@ async function syncChips(db: AdminClient, tableId: string, state: HandState) {
   }
 }
 
+/** True while a hand exists and is not finished yet. */
+export async function handInProgress(db: AdminClient, tableId: string): Promise<boolean> {
+  const latest = await loadLatestHand(db, tableId);
+  if (!latest) return false;
+  const state = latest.public_state as unknown as HandState;
+  return !state.complete;
+}
+
+/**
+ * Seats anyone who reached the minimum buy-in and un-seats anyone who fell
+ * below it. Only runs between hands so live bets are never disturbed.
+ */
+export async function reconcileSeats(db: AdminClient, table: TableRow) {
+  if (await handInProgress(db, table.id)) return;
+  const players = await getPlayers(db, table.id);
+
+  for (const p of players) {
+    if (p.seat !== null && p.chips < table.min_buyin) {
+      const { error } = await db.from("table_players").update({ seat: null }).eq("id", p.id);
+      if (error) throw new Error(error.message);
+      p.seat = null;
+    }
+  }
+
+  for (const p of players) {
+    if (p.seat === null && p.chips >= table.min_buyin) {
+      const seat = firstFreeSeat(players);
+      const { error } = await db.from("table_players").update({ seat }).eq("id", p.id);
+      if (error) throw new Error(error.message);
+      p.seat = seat;
+    }
+  }
+}
+
+/** Host-only chip bank: add or remove chips for a player between hands. */
+export async function adjustPlayerChips(
+  db: AdminClient,
+  table: TableRow,
+  hostId: string,
+  targetUserId: string,
+  delta: number,
+) {
+  if (table.host_id !== hostId) throw new Error("Solo el anfitrión puede repartir fichas");
+  if (!Number.isFinite(delta) || Math.trunc(delta) === 0) throw new Error("Cantidad inválida");
+  if (await handInProgress(db, table.id))
+    throw new Error("Espera a que termine la mano en curso para cambiar fichas");
+
+  const players = await getPlayers(db, table.id);
+  const target = players.find((p) => p.user_id === targetUserId);
+  if (!target) throw new Error("Ese jugador no está en la mesa");
+
+  const next = target.chips + Math.trunc(delta);
+  if (next < 0) throw new Error("El jugador no tiene tantas fichas");
+  if (next > table.max_buyin)
+    throw new Error(`La compra máxima de esta mesa es ${table.max_buyin.toLocaleString("es-MX")}`);
+
+  const { error } = await db.from("table_players").update({ chips: next }).eq("id", target.id);
+  if (error) throw new Error(error.message);
+
+  await reconcileSeats(db, table);
+  return { chips: next };
+}
+
 export async function dealNewHand(db: AdminClient, table: TableRow, userId: string) {
   if (table.host_id !== userId) throw new Error("Solo el anfitrión puede repartir");
+  await reconcileSeats(db, table);
   const players = await getPlayers(db, table.id);
-  const seated = players.filter((p) => !p.sitting_out && p.chips > 0);
-  if (seated.length < 2) throw new Error("Se necesitan al menos 2 jugadores con fichas");
+  const seated = players.filter(
+    (p): p is PlayerRow & { seat: number } =>
+      p.seat !== null && !p.sitting_out && p.chips >= table.min_buyin,
+  );
+  if (seated.length < 2)
+    throw new Error("Se necesitan al menos 2 jugadores con la compra mínima de fichas");
 
   const latest = await loadLatestHand(db, table.id);
   if (latest) {
@@ -177,6 +245,7 @@ export async function dealNewHand(db: AdminClient, table: TableRow, userId: stri
       chips: p.chips,
     })),
   });
+
 
   const { data: hand, error } = await db
     .from("hands")
