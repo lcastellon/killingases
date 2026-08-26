@@ -242,7 +242,7 @@ describe("pots, ties and all-ins", () => {
       ],
       now: 0,
     });
-    // Short stack wins the main pot; "Grande" wins the side pot.
+    // Short stack wins the main pot (four kings); "Medio" wins the side pot (full house).
     rig(
       state,
       {
@@ -262,7 +262,7 @@ describe("pots, ties and all-ins", () => {
     expect(state.pot).toBe(0);
     const short = state.players.find((p) => p.seat === 0)!;
     expect(short.chips).toBe(300); // main pot only (3 x 100)
-    expect(state.winners.some((w) => w.seat === 2)).toBe(true);
+    expect(state.winners.some((w) => w.seat === 1)).toBe(true); // full house wins the side pot
   });
 
   it("runs the board out when all players are all-in", () => {
