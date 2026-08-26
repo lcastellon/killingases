@@ -160,14 +160,13 @@ function Home() {
                 />
               </label>
               <label className="text-xs text-muted-foreground">
-                Fichas iniciales
+                Ciega chica
                 <input
                   type="number"
-                  min={100}
-                  step={100}
-                  value={startingChips}
-                  onChange={(e) => setStartingChips(Math.max(100, Number(e.target.value)))}
-                  className="tabular mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-base text-foreground outline-none focus:border-brass"
+                  min={1}
+                  value={Math.max(1, Math.floor(bigBlind / 2))}
+                  readOnly
+                  className="tabular mt-1 w-full rounded-lg border border-input bg-background/60 px-3 py-2 text-base text-muted-foreground outline-none"
                 />
               </label>
             </div>
@@ -196,8 +195,9 @@ function Home() {
               </label>
             </div>
             <p className="mt-2 text-[0.7rem] text-muted-foreground">
-              Como anfitrión decides cuántas fichas recibe cada jugador; los demás entran como
-              espectadores hasta alcanzar la compra mínima.
+              Cada jugador elige su propia compra dentro de este rango. Tú puedes agregar o retirar
+              fichas después desde el banco de la mesa. Las mesas quedan abiertas hasta que las
+              cierres.
             </p>
             <button
               type="button"
