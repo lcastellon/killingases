@@ -68,7 +68,10 @@ export type HandScore = {
   category: number;
   name: string;
   cards: Card[];
+  holeUsed: Card[];
+  boardUsed: Card[];
 };
+
 
 function straightHigh(uniqueDesc: number[]): number | null {
   const set = new Set(uniqueDesc);
