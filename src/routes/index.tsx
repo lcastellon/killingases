@@ -86,7 +86,7 @@ function Home() {
     <main className="felt-surface min-h-screen">
       <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col px-5 py-8">
         <header className="flex items-center justify-between">
-          <span className="font-display text-2xl tracking-widest text-primary">MATA ASES</span>
+          <span className="font-display text-2xl tracking-widest text-primary">Killing Ases Poker Club{"\n"}</span>
           {signedIn === false && (
             <Link to="/auth" className="text-sm font-semibold text-primary underline-offset-4 hover:underline">
               Entrar
