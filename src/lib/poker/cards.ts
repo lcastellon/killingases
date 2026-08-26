@@ -172,18 +172,28 @@ function combinations<T>(items: T[], k: number): T[][] {
 
 /**
  * Omaha: exactly 2 hole cards + exactly 3 board cards.
- * Falls back to the best available combination when the board is incomplete.
+ * Returns the winning 5 cards plus which 2 hole / 3 board cards were used.
  */
 export function evaluateOmaha(hole: Card[], board: Card[]): HandScore {
-  if (board.length < 3) {
-    return { score: 0, category: 0, name: "Sin evaluar", cards: [] };
+  if (hole.length < 2 || board.length < 3) {
+    return { score: 0, category: 0, name: "Sin evaluar", cards: [], holeUsed: [], boardUsed: [] };
   }
   let best: HandScore | null = null;
   for (const h of combinations(hole, 2)) {
     for (const b of combinations(board, 3)) {
       const score = evaluate5([...h, ...b]);
-      if (!best || score.score > best.score) best = score;
+      if (!best || score.score > best.score) {
+        best = { ...score, holeUsed: h.slice(), boardUsed: b.slice() };
+      }
     }
   }
   return best!;
 }
+
+/** Short Spanish explanation of an Omaha showdown result (2 propias + 3 comunitarias). */
+export function describeOmaha(result: HandScore): string {
+  if (!result.holeUsed.length) return "Mano sin evaluar";
+  const fmt = (cards: Card[]) => cards.map((c) => `${cardLabel(c)}${SUIT_SYMBOL[suitOf(c)]}`).join(" ");
+  return `${result.name}: usa ${fmt(result.holeUsed)} de su mano + ${fmt(result.boardUsed)} de la mesa`;
+}
+
