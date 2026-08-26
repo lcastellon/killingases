@@ -169,7 +169,7 @@ function TableRoom() {
 
         <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
           <span>
-            Ciegas {data.table.smallBlind}/{data.table.bigBlind} · Omaha No Limit
+            Ciegas {data.table.smallBlind}/{data.table.bigBlind} · No Limit Omaha
           </span>
           <span>{hand ? `Mano #${hand.handNo} · ${STREET_LABEL[hand.street]}` : "En lobby"}</span>
         </div>
