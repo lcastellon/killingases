@@ -225,6 +225,59 @@ function TableRoom() {
           </div>
         </section>
 
+        {/* Mis fichas */}
+        {amAtTable && (
+          <section className="mt-4 flex items-center justify-between rounded-2xl border border-brass-soft/40 bg-card/80 p-3">
+            <div>
+              <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+                Tus fichas disponibles
+              </p>
+              <p className="tabular font-display text-3xl text-primary">
+                {data.me.chips.toLocaleString("es-MX")}
+              </p>
+            </div>
+            <p className="max-w-[55%] text-right text-xs text-muted-foreground">
+              {amSeated
+                ? `Compra mínima ${data.table.minBuyin.toLocaleString("es-MX")} · máxima ${data.table.maxBuyin.toLocaleString("es-MX")}`
+                : `Necesitas ${data.table.minBuyin.toLocaleString("es-MX")} fichas para sentarte. El anfitrión las reparte.`}
+            </p>
+          </section>
+        )}
+
+        {/* Espectadores */}
+        {spectators.length > 0 && (
+          <section className="mt-3 rounded-2xl border border-border/50 bg-card/50 p-3">
+            <h2 className="text-sm text-muted-foreground">Esperando fichas</h2>
+            <ul className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
+              {spectators.map((p) => (
+                <li key={p.userId} className="rounded-full border border-border/60 px-2 py-0.5">
+                  {p.displayName} · {p.chips.toLocaleString("es-MX")}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {/* Banco de fichas (solo anfitrión) */}
+        {data.me.isHost && (
+          <div className="mt-3">
+            <ChipBank
+              players={data.players.map((p) => ({
+                userId: p.userId,
+                displayName: p.displayName,
+                chips: p.chips,
+                seat: p.seat,
+              }))}
+              minBuyin={data.table.minBuyin}
+              maxBuyin={data.table.maxBuyin}
+              disabled={busy || Boolean(hand && !hand.complete)}
+              onAdjust={(userId, delta) =>
+                void run(() => adjustChips({ data: { code: codigo, userId, delta } }))
+              }
+            />
+          </div>
+        )}
+
         {/* Mis cartas */}
         {data.myCards && (
           <section className="mt-4 flex items-end justify-between rounded-2xl border border-brass-soft/40 bg-card/80 p-3">
@@ -241,6 +294,7 @@ function TableRoom() {
             </div>
           </section>
         )}
+
 
         {/* Acciones */}
         <section className="mt-4 space-y-3">
