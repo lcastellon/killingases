@@ -97,14 +97,14 @@ export const createTable = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error(error.message);
 
+    // The host joins as a spectator too and picks their own buy-in like everyone else.
     const displayName = await displayNameFor(db, context.userId);
-    const hostChips = Math.min(maxBuyin, Math.max(minBuyin, startingChips));
     const { error: seatError } = await db.from("table_players").insert({
       table_id: table.id,
       user_id: context.userId,
-      seat: 0,
+      seat: null,
       display_name: displayName,
-      chips: hostChips,
+      chips: 0,
     });
     if (seatError) throw new Error(seatError.message);
 
@@ -118,6 +118,7 @@ export const joinTable = createServerFn({ method: "POST" })
     const { admin, getTableByCode, getPlayers, displayNameFor } = await import("./table.server");
     const db = await admin();
     const table = await getTableByCode(db, data.code);
+    if (table.status === "closed") throw new Error("Esa mesa ya fue cerrada por el anfitrión");
     const players = await getPlayers(db, table.id);
     const mine = players.find((p) => p.user_id === context.userId);
     if (mine) return { code: table.code };
@@ -133,6 +134,45 @@ export const joinTable = createServerFn({ method: "POST" })
     });
     if (error) throw new Error(error.message);
     return { code: table.code };
+  });
+
+export const buyInTable = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { code: string; amount: number }) => ({
+    code: String(input.code ?? "").trim().toUpperCase(),
+    amount: Math.trunc(Number(input.amount ?? 0)),
+  }))
+  .handler(async ({ data, context }) => {
+    const { admin, getTableByCode, buyIn } = await import("./table.server");
+    const db = await admin();
+    const table = await getTableByCode(db, data.code);
+    return buyIn(db, table, context.userId, data.amount);
+  });
+
+export const listMyTables = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    if (!isHostEmail(context.claims.email as string | undefined)) return [];
+    const { admin, listHostTables } = await import("./table.server");
+    const db = await admin();
+    return listHostTables(db, context.userId);
+  });
+
+export const closeTable = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { code: string }) => ({ code: String(input.code ?? "").trim().toUpperCase() }))
+  .handler(async ({ data, context }) => {
+    assertHostClaims(context.claims);
+    const { admin, getTableByCode } = await import("./table.server");
+    const db = await admin();
+    const table = await getTableByCode(db, data.code);
+    if (table.host_id !== context.userId) throw new Error("Esa mesa no es tuya");
+    const { error } = await db
+      .from("poker_tables")
+      .update({ status: "closed", updated_at: new Date().toISOString() })
+      .eq("id", table.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 export const setPlayerChips = createServerFn({ method: "POST" })

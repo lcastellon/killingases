@@ -36,7 +36,8 @@ export function ChipBank({
         </span>
       </header>
       <p className="mt-1 text-xs text-muted-foreground">
-        Solo tú, como anfitrión, entregas o retiras fichas. Los cambios se aplican entre manos.
+        Cada jugador elige su compra inicial dentro del rango. Aquí puedes agregarle o retirarle
+        fichas; los cambios se aplican entre manos.
       </p>
 
       <ul className="mt-3 space-y-2">

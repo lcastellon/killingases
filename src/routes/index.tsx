@@ -1,10 +1,10 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import { createTable, joinTable } from "@/lib/poker/table.functions";
+import { closeTable, createTable, joinTable, listMyTables } from "@/lib/poker/table.functions";
 import { isHostEmail } from "@/lib/poker/host";
 import { PlayingCard } from "@/components/poker/PlayingCard";
 
@@ -31,21 +31,33 @@ function Home() {
   const navigate = useNavigate();
   const create = useServerFn(createTable);
   const join = useServerFn(joinTable);
+  const myTables = useServerFn(listMyTables);
+  const close = useServerFn(closeTable);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [isHost, setIsHost] = useState(false);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [bigBlind, setBigBlind] = useState(50);
-  const [startingChips, setStartingChips] = useState(5000);
   const [minBuyin, setMinBuyin] = useState(1000);
   const [maxBuyin, setMaxBuyin] = useState(20000);
+  const [tables, setTables] = useState<Awaited<ReturnType<typeof listMyTables>>>([]);
+
+  const loadTables = useCallback(async () => {
+    try {
+      setTables(await myTables({}));
+    } catch {
+      setTables([]);
+    }
+  }, [myTables]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSignedIn(Boolean(data.session));
-      setIsHost(isHostEmail(data.session?.user.email));
+      const host = isHostEmail(data.session?.user.email);
+      setIsHost(host);
+      if (host) void loadTables();
     });
-  }, []);
+  }, [loadTables]);
 
   const requireAuth = () => {
     if (signedIn) return true;
@@ -61,7 +73,6 @@ function Home() {
         data: {
           bigBlind,
           smallBlind: Math.max(1, Math.floor(bigBlind / 2)),
-          startingChips,
           minBuyin,
           maxBuyin,
         },
@@ -148,14 +159,13 @@ function Home() {
                 />
               </label>
               <label className="text-xs text-muted-foreground">
-                Fichas iniciales
+                Ciega chica
                 <input
                   type="number"
-                  min={100}
-                  step={100}
-                  value={startingChips}
-                  onChange={(e) => setStartingChips(Math.max(100, Number(e.target.value)))}
-                  className="tabular mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-base text-foreground outline-none focus:border-brass"
+                  min={1}
+                  value={Math.max(1, Math.floor(bigBlind / 2))}
+                  readOnly
+                  className="tabular mt-1 w-full rounded-lg border border-input bg-background/60 px-3 py-2 text-base text-muted-foreground outline-none"
                 />
               </label>
             </div>
@@ -184,8 +194,9 @@ function Home() {
               </label>
             </div>
             <p className="mt-2 text-[0.7rem] text-muted-foreground">
-              Como anfitrión decides cuántas fichas recibe cada jugador; los demás entran como
-              espectadores hasta alcanzar la compra mínima.
+              Cada jugador elige su propia compra dentro de este rango. Tú puedes agregar o retirar
+              fichas después desde el banco de la mesa. Las mesas quedan abiertas hasta que las
+              cierres.
             </p>
             <button
               type="button"
@@ -203,6 +214,60 @@ function Home() {
                 Solo el anfitrión del club crea las mesas y reparte las fichas. Pídele el código y
                 entra aquí abajo.
               </p>
+            </div>
+          )}
+
+          {isHost && tables.length > 0 && (
+            <div className="rounded-2xl border border-brass-soft/40 bg-card/80 p-4">
+              <h2 className="text-xl text-foreground">Tus mesas abiertas</h2>
+              <ul className="mt-3 space-y-2">
+                {tables.map((t) => (
+                  <li
+                    key={t.code}
+                    className="flex items-center gap-2 rounded-xl border border-border/60 bg-felt-deep/40 p-2"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-foreground">
+                        {t.name} ·{" "}
+                        <span className="font-display tracking-[0.2em] text-primary">{t.code}</span>
+                      </p>
+                      <p className="tabular text-xs text-muted-foreground">
+                        {t.players} jugador{t.players === 1 ? "" : "es"} · ciegas {t.smallBlind}/
+                        {t.bigBlind} · compra {t.minBuyin.toLocaleString("es-MX")}–
+                        {t.maxBuyin.toLocaleString("es-MX")} · mano #{t.handNo}
+                      </p>
+                    </div>
+                    <Link
+                      to="/mesa/$codigo"
+                      params={{ codigo: t.code }}
+                      className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground"
+                    >
+                      Abrir
+                    </Link>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={async () => {
+                        setBusy(true);
+                        try {
+                          await close({ data: { code: t.code } });
+                          await loadTables();
+                          toast.success("Mesa cerrada");
+                        } catch (error) {
+                          toast.error(
+                            error instanceof Error ? error.message : "No pudimos cerrar la mesa",
+                          );
+                        } finally {
+                          setBusy(false);
+                        }
+                      }}
+                      className="rounded-lg border border-border/70 px-3 py-1.5 text-sm text-muted-foreground hover:text-destructive disabled:opacity-50"
+                    >
+                      Cerrar
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
