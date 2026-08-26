@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import {
   act,
+  buyInTable,
   dealHand,
   getTableSnapshot,
   joinTable,
@@ -58,7 +59,9 @@ function TableRoom() {
   const join = useServerFn(joinTable);
   const leave = useServerFn(leaveTable);
   const adjustChips = useServerFn(setPlayerChips);
+  const buy = useServerFn(buyInTable);
   const [busy, setBusy] = useState(false);
+  const [buyin, setBuyin] = useState("");
 
   const query = useQuery({
     queryKey: ["mesa", codigo],
