@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import type { PublicHandState } from "./engine";
+import type { PublicHandState, SpecialRules } from "./engine";
 
 export type TableSnapshot = {
   table: {
