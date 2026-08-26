@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
 import { act, dealHand, getTableSnapshot, joinTable, leaveTable } from "@/lib/poker/table.functions";
-import { legalActions, type HandState, type PublicHandState } from "@/lib/poker/engine";
+import { legalActions, type HandState } from "@/lib/poker/engine";
 import { evaluateOmaha } from "@/lib/poker/cards";
 import { PlayingCard } from "@/components/poker/PlayingCard";
 import { Seat, type SeatView } from "@/components/poker/Seat";
@@ -307,5 +307,3 @@ function TableRoom() {
     </main>
   );
 }
-
-export type { PublicHandState };
