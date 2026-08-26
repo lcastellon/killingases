@@ -168,14 +168,15 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { code: string }) => ({ code: String(input.code ?? "").trim().toUpperCase() }))
   .handler(async ({ data, context }): Promise<TableSnapshot> => {
-    const { admin, getTableByCode, getPlayers, enforceTurnTimer, touchPresence } = await import(
-      "./table.server"
-    );
+    const { admin, getTableByCode, getPlayers, enforceTurnTimer, touchPresence, reconcileSeats } =
+      await import("./table.server");
     const db = await admin();
     const table = await getTableByCode(db, data.code);
     await enforceTurnTimer(db, table);
     await touchPresence(db, table.id, context.userId);
+    await reconcileSeats(db, table);
     const players = await getPlayers(db, table.id);
+
 
     const { data: handRow } = await db
       .from("hands")
