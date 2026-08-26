@@ -308,3 +308,38 @@ export const act = createServerFn({ method: "POST" })
     const table = await getTableByCode(db, data.code);
     return performAction(db, table, context.userId, data.action, data.amount);
   });
+
+export const getHostPanel = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    assertHostClaims(context.claims);
+    const { admin, hostPanelData } = await import("./table.server");
+    const db = await admin();
+    return hostPanelData(db, context.userId);
+  });
+
+export const addPlayerToTable = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { code: string; userId: string }) => ({
+    code: String(input.code ?? "").trim().toUpperCase(),
+    userId: String(input.userId ?? ""),
+  }))
+  .handler(async ({ data, context }) => {
+    assertHostClaims(context.claims);
+    const { admin, getTableByCode, getPlayers, displayNameFor } = await import("./table.server");
+    const db = await admin();
+    const table = await getTableByCode(db, data.code);
+    if (table.host_id !== context.userId) throw new Error("Esa mesa no es tuya");
+    const players = await getPlayers(db, table.id);
+    if (players.some((p) => p.user_id === data.userId)) return { ok: true };
+    const displayName = await displayNameFor(db, data.userId);
+    const { error } = await db.from("table_players").insert({
+      table_id: table.id,
+      user_id: data.userId,
+      seat: null,
+      display_name: displayName,
+      chips: 0,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });

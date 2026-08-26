@@ -409,3 +409,65 @@ export async function enforceTurnTimer(db: AdminClient, table: TableRow) {
   await syncChips(db, table.id, state);
   return true;
 }
+
+/**
+ * Global host panel data: every registered player of the club plus the tables
+ * they are sitting at (with chip counts) across all of the host's open tables.
+ */
+export async function hostPanelData(db: AdminClient, hostId: string) {
+  const { data: tableRows, error: tablesError } = await db
+    .from("poker_tables")
+    .select("id, code, name, status, min_buyin, max_buyin, small_blind, big_blind")
+    .eq("host_id", hostId)
+    .neq("status", "closed")
+    .order("created_at", { ascending: false });
+  if (tablesError) throw new Error(tablesError.message);
+  const tables = tableRows ?? [];
+
+  const { data: profileRows, error: profilesError } = await db
+    .from("profiles")
+    .select("id, display_name, created_at")
+    .order("created_at", { ascending: true });
+  if (profilesError) throw new Error(profilesError.message);
+
+  let seats: { table_id: string; user_id: string; chips: number; seat: number | null }[] = [];
+  if (tables.length > 0) {
+    const { data: seatRows, error: seatsError } = await db
+      .from("table_players")
+      .select("table_id, user_id, chips, seat")
+      .in(
+        "table_id",
+        tables.map((t) => t.id),
+      );
+    if (seatsError) throw new Error(seatsError.message);
+    seats = seatRows ?? [];
+  }
+
+  const byId = new Map(tables.map((t) => [t.id, t]));
+
+  return {
+    tables: tables.map((t) => ({
+      code: t.code,
+      name: t.name,
+      minBuyin: t.min_buyin,
+      maxBuyin: t.max_buyin,
+      smallBlind: t.small_blind,
+      bigBlind: t.big_blind,
+    })),
+    players: (profileRows ?? []).map((p) => ({
+      userId: p.id,
+      displayName: p.display_name,
+      joinedAt: p.created_at,
+      memberships: seats
+        .filter((s) => s.user_id === p.id)
+        .map((s) => ({
+          code: byId.get(s.table_id)?.code ?? "",
+          name: byId.get(s.table_id)?.name ?? "",
+          chips: s.chips,
+          seat: s.seat,
+          maxBuyin: byId.get(s.table_id)?.max_buyin ?? 0,
+        }))
+        .filter((m) => m.code !== ""),
+    })),
+  };
+}
