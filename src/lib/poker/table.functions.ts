@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import type { PublicHandState } from "./engine";
+import type { PublicHandState, SpecialRules } from "./engine";
 
 export type TableSnapshot = {
   table: {
@@ -14,6 +14,9 @@ export type TableSnapshot = {
     status: string;
     buttonSeat: number | null;
     handNo: number;
+    turnSeconds: number;
+    gameVariant: string;
+    specialRules: SpecialRules;
   };
   players: {
     userId: string;
@@ -21,21 +24,33 @@ export type TableSnapshot = {
     displayName: string;
     chips: number;
     sittingOut: boolean;
+    lastSeenAt: string;
+    online: boolean;
   }[];
   hand: PublicHandState | null;
   myCards: string[] | null;
   me: { userId: string; seat: number | null; isHost: boolean };
+  serverNow: string;
 };
 
 export const createTable = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { name?: string; smallBlind?: number; bigBlind?: number; startingChips?: number }) => input)
+  .inputValidator(
+    (input: {
+      name?: string;
+      smallBlind?: number;
+      bigBlind?: number;
+      startingChips?: number;
+      turnSeconds?: number;
+    }) => input,
+  )
   .handler(async ({ data, context }) => {
     const { admin, makeCode, displayNameFor } = await import("./table.server");
     const db = await admin();
     const bigBlind = Math.max(2, Math.floor(data.bigBlind ?? 50));
     const smallBlind = Math.max(1, Math.floor(data.smallBlind ?? Math.floor(bigBlind / 2)));
     const startingChips = Math.max(bigBlind * 10, Math.floor(data.startingChips ?? 5000));
+    const turnSeconds = Math.min(120, Math.max(10, Math.floor(data.turnSeconds ?? 30)));
 
     let code = makeCode();
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -57,6 +72,9 @@ export const createTable = createServerFn({ method: "POST" })
         small_blind: smallBlind,
         big_blind: bigBlind,
         starting_chips: startingChips,
+        turn_seconds: turnSeconds,
+        game_variant: "omaha",
+        special_rules: {},
       })
       .select("id, code")
       .single();
@@ -121,9 +139,13 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { code: string }) => ({ code: String(input.code ?? "").trim().toUpperCase() }))
   .handler(async ({ data, context }): Promise<TableSnapshot> => {
-    const { admin, getTableByCode, getPlayers } = await import("./table.server");
+    const { admin, getTableByCode, getPlayers, enforceTurnTimer, touchPresence } = await import(
+      "./table.server"
+    );
     const db = await admin();
     const table = await getTableByCode(db, data.code);
+    await enforceTurnTimer(db, table);
+    await touchPresence(db, table.id, context.userId);
     const players = await getPlayers(db, table.id);
 
     const { data: handRow } = await db
@@ -159,6 +181,9 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
         status: table.status,
         buttonSeat: table.button_seat,
         handNo: table.hand_no,
+        turnSeconds: table.turn_seconds,
+        gameVariant: table.game_variant,
+        specialRules: (table.special_rules ?? {}) as SpecialRules,
       },
       players: players.map((p) => ({
         userId: p.user_id,
@@ -166,6 +191,8 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
         displayName: p.display_name,
         chips: p.chips,
         sittingOut: p.sitting_out,
+        lastSeenAt: p.last_seen_at,
+        online: Date.now() - Date.parse(p.last_seen_at) < 20_000,
       })),
       hand: (handRow?.public_state as unknown as PublicHandState) ?? null,
       myCards,
@@ -174,6 +201,7 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
         seat: mine?.seat ?? null,
         isHost: table.host_id === context.userId,
       },
+      serverNow: new Date().toISOString(),
     };
   });
 

@@ -15,6 +15,7 @@ export type SeatView = {
   cardCount: number;
   winAmount?: number | undefined;
   handName?: string | undefined;
+  online?: boolean | undefined;
 };
 
 export function Seat({ view }: { view: SeatView }) {
@@ -45,6 +46,10 @@ export function Seat({ view }: { view: SeatView }) {
       </div>
 
       <div className="flex w-full items-center justify-center gap-1">
+        <span
+          className={cn("h-1.5 w-1.5 shrink-0 rounded-full", view.online === false ? "bg-muted-foreground" : "bg-primary")}
+          title={view.online === false ? "Sin conexión" : "Conectado"}
+        />
         <span className="truncate text-xs font-semibold">{view.name}</span>
         {view.isButton && (
           <span className="rounded-full bg-primary px-1.5 text-[0.6rem] font-bold text-primary-foreground">
@@ -63,6 +68,11 @@ export function Seat({ view }: { view: SeatView }) {
         </span>
       )}
       {view.folded && <span className="text-[0.65rem] uppercase text-muted-foreground">Retirado</span>}
+      {view.online === false && !view.folded && (
+        <span className="text-[0.65rem] uppercase tracking-wide text-muted-foreground">
+          Sin conexión
+        </span>
+      )}
 
       {view.bet > 0 && (
         <span className="tabular rounded-full border border-brass-soft/50 bg-felt-deep px-2 py-0.5 text-[0.7rem] text-primary">

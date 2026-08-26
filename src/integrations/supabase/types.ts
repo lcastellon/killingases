@@ -113,13 +113,16 @@ export type Database = {
           button_seat: number | null
           code: string
           created_at: string
+          game_variant: string
           hand_no: number
           host_id: string
           id: string
           name: string
           small_blind: number
+          special_rules: Json
           starting_chips: number
           status: string
+          turn_seconds: number
           updated_at: string
         }
         Insert: {
@@ -127,13 +130,16 @@ export type Database = {
           button_seat?: number | null
           code: string
           created_at?: string
+          game_variant?: string
           hand_no?: number
           host_id: string
           id?: string
           name?: string
           small_blind?: number
+          special_rules?: Json
           starting_chips?: number
           status?: string
+          turn_seconds?: number
           updated_at?: string
         }
         Update: {
@@ -141,13 +147,16 @@ export type Database = {
           button_seat?: number | null
           code?: string
           created_at?: string
+          game_variant?: string
           hand_no?: number
           host_id?: string
           id?: string
           name?: string
           small_blind?: number
+          special_rules?: Json
           starting_chips?: number
           status?: string
+          turn_seconds?: number
           updated_at?: string
         }
         Relationships: []
@@ -176,6 +185,7 @@ export type Database = {
           display_name: string
           id: string
           joined_at: string
+          last_seen_at: string
           seat: number
           sitting_out: boolean
           table_id: string
@@ -186,6 +196,7 @@ export type Database = {
           display_name: string
           id?: string
           joined_at?: string
+          last_seen_at?: string
           seat: number
           sitting_out?: boolean
           table_id: string
@@ -196,6 +207,7 @@ export type Database = {
           display_name?: string
           id?: string
           joined_at?: string
+          last_seen_at?: string
           seat?: number
           sitting_out?: boolean
           table_id?: string

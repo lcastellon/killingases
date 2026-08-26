@@ -11,6 +11,8 @@ import { PlayingCard } from "@/components/poker/PlayingCard";
 import { Seat, type SeatView } from "@/components/poker/Seat";
 import { ActionBar } from "@/components/poker/ActionBar";
 import { useTableRealtime } from "@/hooks/useTableRealtime";
+import { TurnTimer } from "@/components/poker/TurnTimer";
+import { Showdown } from "@/components/poker/Showdown";
 
 export const Route = createFileRoute("/_authenticated/mesa/$codigo")({
   head: ({ params }) => ({
@@ -51,7 +53,10 @@ function TableRoom() {
   const query = useQuery({
     queryKey: ["mesa", codigo],
     queryFn: () => snapshot({ data: { code: codigo } }),
-    refetchInterval: 4000,
+    refetchInterval: 2000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchOnMount: "always",
   });
 
   const refetch = useCallback(() => {
@@ -88,6 +93,7 @@ function TableRoom() {
           cardCount: handPlayer ? 4 : 0,
           winAmount: winner?.amount,
           handName: winner?.handName,
+          online: p.online,
         } satisfies SeatView;
       });
   }, [data, hand]);
@@ -218,6 +224,19 @@ function TableRoom() {
 
         {/* Acciones */}
         <section className="mt-4 space-y-3">
+          {hand && !hand.complete && hand.turnEndsAt && hand.currentSeat !== null && (
+            <TurnTimer
+              endsAt={hand.turnEndsAt}
+              totalSeconds={hand.turnSeconds ?? data.table.turnSeconds}
+              label={
+                hand.currentSeat === data.me.seat
+                  ? "Tu turno"
+                  : `Turno de ${seats.find((s) => s.seat === hand.currentSeat)?.name ?? "otro jugador"}`
+              }
+              onExpire={refetch}
+            />
+          )}
+
           {legal && !hand?.complete ? (
             <ActionBar
               legal={legal}
@@ -235,6 +254,8 @@ function TableRoom() {
               …
             </p>
           ) : null}
+
+          {hand?.complete && hand.showdown?.length ? <Showdown entries={hand.showdown} /> : null}
 
           {hand?.complete && (
             <div className="rounded-xl border border-brass-soft/50 bg-card/80 p-3 text-center">

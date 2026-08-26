@@ -1,6 +1,20 @@
-import { evaluateOmaha, newDeck, shuffle, type Card } from "./cards";
+import { describeOmaha, evaluateOmaha, newDeck, shuffle, type Card } from "./cards";
 
 export type Street = "preflop" | "flop" | "turn" | "river" | "showdown";
+
+export type GameVariant = "omaha" | "mata-ases";
+
+/** Room for future variants (Mata Ases) without touching the base engine. */
+export type SpecialRules = {
+  /** Number of hole cards dealt to each player. */
+  holeCards?: number;
+  /** Exact number of hole cards that must be used at showdown. */
+  mustUseHole?: number;
+  /** Free-form JSON flags for future rules. */
+  [key: string]: string | number | boolean | null | undefined;
+};
+
+export const DEFAULT_TURN_SECONDS = 30;
 
 export type PlayerState = {
   seat: number;
@@ -12,6 +26,7 @@ export type PlayerState = {
   folded: boolean;
   allIn: boolean;
   hasActed: boolean;
+  autoActions: number; // times the timer acted for this player
 };
 
 export type Winner = {
@@ -22,21 +37,38 @@ export type Winner = {
   bestCards?: Card[];
 };
 
+export type ShowdownEntry = {
+  seat: number;
+  name: string;
+  handName: string;
+  cards: Card[]; // the winning 5-card combination
+  holeUsed: Card[]; // exactly 2 in Omaha
+  boardUsed: Card[]; // exactly 3 in Omaha
+  description: string;
+  amount: number; // chips won by this player
+};
+
 export type HandState = {
   handNo: number;
   buttonSeat: number;
   smallBlind: number;
   bigBlind: number;
+  variant: GameVariant;
+  specialRules: SpecialRules;
+  turnSeconds: number;
+  /** ISO timestamp when the current player's turn expires. */
+  turnEndsAt: string | null;
   street: Street;
   board: Card[];
   deck: Card[];
-  hole: Record<string, Card[]>; // seat -> 4 cards
+  hole: Record<string, Card[]>; // seat -> hole cards
   pot: number;
   currentSeat: number | null;
   currentBet: number;
   minRaise: number;
   players: PlayerState[];
   winners: Winner[];
+  showdown: ShowdownEntry[];
   revealed: Record<string, Card[]>;
   log: string[];
   complete: boolean;
@@ -61,6 +93,11 @@ function canAct(p: PlayerState): boolean {
   return !p.folded && !p.allIn && p.chips > 0;
 }
 
+function setTurn(state: HandState, seat: number | null, now: number = Date.now()) {
+  state.currentSeat = seat;
+  state.turnEndsAt = seat === null ? null : new Date(now + state.turnSeconds * 1000).toISOString();
+}
+
 function nextSeatFrom(state: HandState, seat: number, predicate: (p: PlayerState) => boolean) {
   const order = state.players.slice().sort((a, b) => a.seat - b.seat);
   const startIndex = order.findIndex((p) => p.seat === seat);
@@ -81,12 +118,21 @@ function post(state: HandState, player: PlayerState, amount: number) {
   return paid;
 }
 
+export function holeCardCount(rules: SpecialRules | undefined): number {
+  const n = rules?.holeCards;
+  return typeof n === "number" && n >= 2 && n <= 6 ? Math.floor(n) : 4;
+}
+
 export function startHand(input: {
   handNo: number;
   buttonSeat: number;
   smallBlind: number;
   bigBlind: number;
   seats: SeatInput[];
+  variant?: GameVariant;
+  specialRules?: SpecialRules;
+  turnSeconds?: number;
+  now?: number;
 }): HandState {
   const eligible = input.seats.filter((s) => s.chips > 0).sort((a, b) => a.seat - b.seat);
   if (eligible.length < 2) throw new Error("Se necesitan al menos 2 jugadores con fichas");
@@ -102,13 +148,20 @@ export function startHand(input: {
     folded: false,
     allIn: false,
     hasActed: false,
+    autoActions: 0,
   }));
 
+  const specialRules = input.specialRules ?? {};
   const state: HandState = {
     handNo: input.handNo,
     buttonSeat: input.buttonSeat,
     smallBlind: input.smallBlind,
     bigBlind: input.bigBlind,
+    variant: input.variant ?? "omaha",
+    specialRules,
+    turnSeconds:
+      input.turnSeconds && input.turnSeconds > 0 ? Math.floor(input.turnSeconds) : DEFAULT_TURN_SECONDS,
+    turnEndsAt: null,
     street: "preflop",
     board: [],
     deck,
@@ -119,14 +172,15 @@ export function startHand(input: {
     minRaise: input.bigBlind,
     players,
     winners: [],
+    showdown: [],
     revealed: {},
     log: [],
     complete: false,
   };
 
-  // Deal 4 cards each
+  const perPlayer = holeCardCount(specialRules);
   for (const p of players) {
-    state.hole[String(p.seat)] = state.deck.splice(0, 4);
+    state.hole[String(p.seat)] = state.deck.splice(0, perPlayer);
   }
 
   const heads = players.length === 2;
@@ -146,7 +200,7 @@ export function startHand(input: {
   state.log.push(`${sb.name} pone la ciega chica (${sb.bet})`);
   state.log.push(`${bb.name} pone la ciega grande (${bb.bet})`);
 
-  state.currentSeat = heads ? sbSeat : nextSeatFrom(state, bbSeat, canAct);
+  setTurn(state, heads ? sbSeat : nextSeatFrom(state, bbSeat, canAct), input.now);
   if (state.currentSeat === null) runOut(state);
   return state;
 }
@@ -186,6 +240,7 @@ export function applyAction(
   seat: number,
   action: ActionKind,
   raiseTo?: number,
+  now: number = Date.now(),
 ): HandState {
   if (state.complete) throw new Error("La mano ya terminó");
   if (state.currentSeat !== seat) throw new Error("No es tu turno");
@@ -231,10 +286,37 @@ export function applyAction(
     } else {
       state.log.push(`${p.name} va all-in con ${paid}`);
     }
+  } else {
+    throw new Error("Acción inválida");
   }
 
-  advance(state);
+  advance(state, now);
   return state;
+}
+
+/**
+ * Server-side turn timer. If the current player's clock expired, checks when
+ * possible and folds otherwise. Returns true when it acted.
+ */
+export function autoActOnTimeout(state: HandState, now: number = Date.now()): boolean {
+  if (state.complete || state.currentSeat === null || !state.turnEndsAt) return false;
+  if (now < Date.parse(state.turnEndsAt)) return false;
+  const seat = state.currentSeat;
+  const legal = legalActions(state, seat);
+  if (!legal) return false;
+  const player = state.players.find((p) => p.seat === seat)!;
+  player.autoActions += 1;
+  state.log.push(`${player.name} se quedó sin tiempo`);
+  applyAction(state, seat, legal.canCheck ? "check" : "fold", undefined, now);
+  return true;
+}
+
+/** Runs the timer repeatedly (a chain of absent players may time out at once). */
+export function settleTimeouts(state: HandState, now: number = Date.now()): boolean {
+  let acted = false;
+  let guard = 0;
+  while (autoActOnTimeout(state, now) && guard++ < 20) acted = true;
+  return acted;
 }
 
 function bettingRoundClosed(state: HandState): boolean {
@@ -249,7 +331,7 @@ function bettingRoundClosed(state: HandState): boolean {
   return actors.every((p) => p.hasActed && p.bet === state.currentBet);
 }
 
-function advance(state: HandState) {
+function advance(state: HandState, now: number = Date.now()) {
   const contenders = activeSeats(state);
   if (contenders.length === 1) {
     const winner = contenders[0]!;
@@ -257,7 +339,7 @@ function advance(state: HandState) {
     state.winners = [{ seat: winner.seat, name: winner.name, amount: state.pot }];
     state.log.push(`${winner.name} gana ${state.pot} sin showdown`);
     state.pot = 0;
-    state.currentSeat = null;
+    setTurn(state, null, now);
     state.complete = true;
     state.street = "showdown";
     return;
@@ -265,7 +347,7 @@ function advance(state: HandState) {
 
   if (!bettingRoundClosed(state)) {
     const next = nextSeatFrom(state, state.currentSeat ?? state.buttonSeat, canAct);
-    state.currentSeat = next;
+    setTurn(state, next, now);
     if (next === null) runOut(state);
     return;
   }
@@ -285,10 +367,10 @@ function advance(state: HandState) {
     return;
   }
 
-  nextStreet(state);
+  nextStreet(state, now);
 }
 
-function nextStreet(state: HandState) {
+function nextStreet(state: HandState, now: number = Date.now()) {
   for (const p of state.players) {
     p.bet = 0;
     p.hasActed = false;
@@ -311,7 +393,7 @@ function nextStreet(state: HandState) {
   }
 
   const next = nextSeatFrom(state, state.buttonSeat, canAct);
-  state.currentSeat = next;
+  setTurn(state, next, now);
   if (next === null || activeSeats(state).filter(canAct).length === 0) {
     runOut(state);
   }
@@ -319,7 +401,7 @@ function nextStreet(state: HandState) {
 
 /** Everyone is all-in: deal the remaining board and settle. */
 function runOut(state: HandState) {
-  state.currentSeat = null;
+  setTurn(state, null);
   while (state.board.length < 5) {
     state.deck.shift();
     state.board.push(state.deck.splice(0, 1)[0]!);
@@ -334,10 +416,9 @@ function settle(state: HandState) {
     state.revealed[String(p.seat)] = state.hole[String(p.seat)] ?? [];
   }
 
-  const evaluated = new Map<number, { score: number; name: string; cards: string[] }>();
+  const evaluated = new Map<number, ReturnType<typeof evaluateOmaha>>();
   for (const p of contenders) {
-    const result = evaluateOmaha(state.hole[String(p.seat)] ?? [], state.board);
-    evaluated.set(p.seat, { score: result.score, name: result.name, cards: result.cards });
+    evaluated.set(p.seat, evaluateOmaha(state.hole[String(p.seat)] ?? [], state.board));
   }
 
   const levels = [...new Set(state.players.map((p) => p.committed).filter((c) => c > 0))].sort(
@@ -345,6 +426,7 @@ function settle(state: HandState) {
   );
 
   const winnersBySeat = new Map<number, Winner>();
+  const payouts = new Map<number, number>();
   let previous = 0;
   for (const level of levels) {
     let amount = 0;
@@ -367,6 +449,7 @@ function settle(state: HandState) {
         remainder -= 1;
       }
       w.chips += payout;
+      payouts.set(w.seat, (payouts.get(w.seat) ?? 0) + payout);
       const existing = winnersBySeat.get(w.seat);
       const evaluation = evaluated.get(w.seat)!;
       if (existing) {
@@ -383,12 +466,28 @@ function settle(state: HandState) {
     }
   }
 
+  state.showdown = contenders
+    .map((p) => {
+      const evaluation = evaluated.get(p.seat)!;
+      return {
+        seat: p.seat,
+        name: p.name,
+        handName: evaluation.name,
+        cards: evaluation.cards,
+        holeUsed: evaluation.holeUsed,
+        boardUsed: evaluation.boardUsed,
+        description: describeOmaha(evaluation),
+        amount: payouts.get(p.seat) ?? 0,
+      } satisfies ShowdownEntry;
+    })
+    .sort((a, b) => b.amount - a.amount || b.seat - a.seat);
+
   state.winners = [...winnersBySeat.values()].sort((a, b) => b.amount - a.amount);
   for (const w of state.winners) {
     state.log.push(`${w.name} gana ${w.amount} con ${w.handName}`);
   }
   state.pot = 0;
-  state.currentSeat = null;
+  setTurn(state, null);
   state.street = "showdown";
   state.complete = true;
 }
