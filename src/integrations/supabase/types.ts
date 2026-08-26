@@ -14,13 +14,212 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      hand_cards: {
+        Row: {
+          cards: string[]
+          hand_id: string
+          id: string
+          seat: number
+          user_id: string
+        }
+        Insert: {
+          cards: string[]
+          hand_id: string
+          id?: string
+          seat: number
+          user_id: string
+        }
+        Update: {
+          cards?: string[]
+          hand_id?: string
+          id?: string
+          seat?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hand_cards_hand_id_fkey"
+            columns: ["hand_id"]
+            isOneToOne: false
+            referencedRelation: "hands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hand_secrets: {
+        Row: {
+          hand_id: string
+          state: Json
+          updated_at: string
+        }
+        Insert: {
+          hand_id: string
+          state: Json
+          updated_at?: string
+        }
+        Update: {
+          hand_id?: string
+          state?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hand_secrets_hand_id_fkey"
+            columns: ["hand_id"]
+            isOneToOne: true
+            referencedRelation: "hands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hands: {
+        Row: {
+          created_at: string
+          hand_no: number
+          id: string
+          public_state: Json
+          table_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          hand_no: number
+          id?: string
+          public_state: Json
+          table_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          hand_no?: number
+          id?: string
+          public_state?: Json
+          table_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hands_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "poker_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      poker_tables: {
+        Row: {
+          big_blind: number
+          button_seat: number | null
+          code: string
+          created_at: string
+          hand_no: number
+          host_id: string
+          id: string
+          name: string
+          small_blind: number
+          starting_chips: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          big_blind?: number
+          button_seat?: number | null
+          code: string
+          created_at?: string
+          hand_no?: number
+          host_id: string
+          id?: string
+          name?: string
+          small_blind?: number
+          starting_chips?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          big_blind?: number
+          button_seat?: number | null
+          code?: string
+          created_at?: string
+          hand_no?: number
+          host_id?: string
+          id?: string
+          name?: string
+          small_blind?: number
+          starting_chips?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string
+          id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      table_players: {
+        Row: {
+          chips: number
+          display_name: string
+          id: string
+          joined_at: string
+          seat: number
+          sitting_out: boolean
+          table_id: string
+          user_id: string
+        }
+        Insert: {
+          chips?: number
+          display_name: string
+          id?: string
+          joined_at?: string
+          seat: number
+          sitting_out?: boolean
+          table_id: string
+          user_id: string
+        }
+        Update: {
+          chips?: number
+          display_name?: string
+          id?: string
+          joined_at?: string
+          seat?: number
+          sitting_out?: boolean
+          table_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_players_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "poker_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_at_table: {
+        Args: { _table_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
