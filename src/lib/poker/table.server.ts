@@ -1,3 +1,4 @@
+import type { Json } from "@/integrations/supabase/types";
 import { applyAction, sanitize, startHand, type ActionKind, type HandState } from "./engine";
 
 const MAX_SEATS = 9;
@@ -100,7 +101,7 @@ async function loadSecret(db: AdminClient, handId: string): Promise<HandState> {
 }
 
 async function persistHand(db: AdminClient, handId: string, state: HandState) {
-  const publicState = sanitize(state) as unknown as Record<string, unknown>;
+  const publicState = sanitize(state) as unknown as Json;
   const { error } = await db
     .from("hands")
     .update({ public_state: publicState, updated_at: new Date().toISOString() })
@@ -108,7 +109,7 @@ async function persistHand(db: AdminClient, handId: string, state: HandState) {
   if (error) throw new Error(error.message);
   const { error: secretError } = await db
     .from("hand_secrets")
-    .update({ state: state as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+    .update({ state: state as unknown as Json, updated_at: new Date().toISOString() })
     .eq("hand_id", handId);
   if (secretError) throw new Error(secretError.message);
 
@@ -163,7 +164,7 @@ export async function dealNewHand(db: AdminClient, table: TableRow, userId: stri
     .insert({
       table_id: table.id,
       hand_no: handNo,
-      public_state: sanitize(state) as unknown as Record<string, unknown>,
+      public_state: sanitize(state) as unknown as Json,
     })
     .select("id")
     .single();
@@ -171,7 +172,7 @@ export async function dealNewHand(db: AdminClient, table: TableRow, userId: stri
 
   const { error: secretError } = await db
     .from("hand_secrets")
-    .insert({ hand_id: hand.id, state: state as unknown as Record<string, unknown> });
+    .insert({ hand_id: hand.id, state: state as unknown as Json });
   if (secretError) throw new Error(secretError.message);
 
   const cardRows = state.players.map((p) => ({

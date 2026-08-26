@@ -15,10 +15,10 @@ export function PlayingCard({
   className,
   dimmed,
 }: {
-  card?: string | null;
-  size?: Size;
-  className?: string;
-  dimmed?: boolean;
+  card?: string | null | undefined;
+  size?: Size | undefined;
+  className?: string | undefined;
+  dimmed?: boolean | undefined;
 }) {
   if (!card) {
     return (

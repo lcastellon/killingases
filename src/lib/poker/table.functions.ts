@@ -189,7 +189,7 @@ export const dealHand = createServerFn({ method: "POST" })
 
 export const act = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { code: string; action: "fold" | "check" | "call" | "raise"; amount?: number }) => ({
+  .inputValidator((input: { code: string; action: "fold" | "check" | "call" | "raise"; amount?: number | undefined }) => ({
     code: String(input.code ?? "").trim().toUpperCase(),
     action: input.action,
     amount: input.amount,

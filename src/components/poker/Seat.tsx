@@ -13,8 +13,8 @@ export type SeatView = {
   isMe: boolean;
   cards: string[] | null; // revealed or own cards
   cardCount: number;
-  winAmount?: number;
-  handName?: string;
+  winAmount?: number | undefined;
+  handName?: string | undefined;
 };
 
 export function Seat({ view }: { view: SeatView }) {
