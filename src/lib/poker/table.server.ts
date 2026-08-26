@@ -176,6 +176,73 @@ export async function reconcileSeats(db: AdminClient, table: TableRow) {
   }
 }
 
+/**
+ * A player decides their own buy-in, within the table's min/max. Chips are
+ * credited to them and `reconcileSeats` seats them as soon as no hand is live.
+ */
+export async function buyIn(
+  db: AdminClient,
+  table: TableRow,
+  userId: string,
+  amount: number,
+) {
+  const wanted = Math.trunc(Number(amount));
+  if (!Number.isFinite(wanted) || wanted <= 0) throw new Error("Cantidad inválida");
+
+  const players = await getPlayers(db, table.id);
+  const me = players.find((p) => p.user_id === userId);
+  if (!me) throw new Error("Primero entra a la mesa");
+
+  const total = me.chips + wanted;
+  if (total < table.min_buyin)
+    throw new Error(`La compra mínima es ${table.min_buyin.toLocaleString("es-MX")}`);
+  if (total > table.max_buyin)
+    throw new Error(`La compra máxima es ${table.max_buyin.toLocaleString("es-MX")}`);
+
+  const { error } = await db.from("table_players").update({ chips: total }).eq("id", me.id);
+  if (error) throw new Error(error.message);
+
+  await reconcileSeats(db, table);
+  return { chips: total };
+}
+
+/** Tables the host has open, for the permanent lobby list. */
+export async function listHostTables(db: AdminClient, hostId: string) {
+  const { data, error } = await db
+    .from("poker_tables")
+    .select("id, code, name, status, small_blind, big_blind, min_buyin, max_buyin, hand_no, created_at")
+    .eq("host_id", hostId)
+    .neq("status", "closed")
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  const tables = data ?? [];
+
+  const counts = new Map<string, number>();
+  if (tables.length > 0) {
+    const { data: rows, error: playersError } = await db
+      .from("table_players")
+      .select("table_id")
+      .in(
+        "table_id",
+        tables.map((t) => t.id),
+      );
+    if (playersError) throw new Error(playersError.message);
+    for (const row of rows ?? []) counts.set(row.table_id, (counts.get(row.table_id) ?? 0) + 1);
+  }
+
+  return tables.map((t) => ({
+    code: t.code,
+    name: t.name,
+    status: t.status,
+    smallBlind: t.small_blind,
+    bigBlind: t.big_blind,
+    minBuyin: t.min_buyin,
+    maxBuyin: t.max_buyin,
+    handNo: t.hand_no,
+    players: counts.get(t.id) ?? 0,
+  }));
+}
+
 /** Host-only chip bank: add or remove chips for a player between hands. */
 export async function adjustPlayerChips(
   db: AdminClient,
