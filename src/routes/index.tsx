@@ -113,17 +113,28 @@ function Home() {
             </Link>
           )}
           {signedIn && (
-            <button
-              type="button"
-              onClick={async () => {
-                await supabase.auth.signOut();
-                setSignedIn(false);
-              }}
-              className="text-sm text-muted-foreground hover:text-foreground"
-            >
-              Salir
-            </button>
+            <div className="flex items-center gap-3">
+              {isHost && (
+                <Link
+                  to="/panel"
+                  className="text-sm font-semibold text-primary underline-offset-4 hover:underline"
+                >
+                  Panel
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  setSignedIn(false);
+                }}
+                className="text-sm text-muted-foreground hover:text-foreground"
+              >
+                Salir
+              </button>
+            </div>
           )}
+
         </header>
 
         <section className="mt-10">
