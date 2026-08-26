@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedPanelRouteImport } from './routes/_authenticated/panel'
 import { Route as AuthenticatedMesaCodigoRouteImport } from './routes/_authenticated/mesa.$codigo'
 
 const IndexRoute = IndexRouteImport.update({
@@ -28,6 +29,11 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedPanelRoute = AuthenticatedPanelRouteImport.update({
+  id: '/panel',
+  path: '/panel',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedMesaCodigoRoute = AuthenticatedMesaCodigoRouteImport.update({
   id: '/mesa/$codigo',
   path: '/mesa/$codigo',
@@ -37,11 +43,13 @@ const AuthenticatedMesaCodigoRoute = AuthenticatedMesaCodigoRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/panel': typeof AuthenticatedPanelRoute
   '/mesa/$codigo': typeof AuthenticatedMesaCodigoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/panel': typeof AuthenticatedPanelRoute
   '/mesa/$codigo': typeof AuthenticatedMesaCodigoRoute
 }
 export interface FileRoutesById {
@@ -49,18 +57,20 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/panel': typeof AuthenticatedPanelRoute
   '/_authenticated/mesa/$codigo': typeof AuthenticatedMesaCodigoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/mesa/$codigo'
+  fullPaths: '/' | '/auth' | '/panel' | '/mesa/$codigo'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/mesa/$codigo'
+  to: '/' | '/auth' | '/panel' | '/mesa/$codigo'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/panel'
     | '/_authenticated/mesa/$codigo'
   fileRoutesById: FileRoutesById
 }
@@ -93,6 +103,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/panel': {
+      id: '/_authenticated/panel'
+      path: '/panel'
+      fullPath: '/panel'
+      preLoaderRoute: typeof AuthenticatedPanelRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/mesa/$codigo': {
       id: '/_authenticated/mesa/$codigo'
       path: '/mesa/$codigo'
@@ -104,10 +121,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedPanelRoute: typeof AuthenticatedPanelRoute
   AuthenticatedMesaCodigoRoute: typeof AuthenticatedMesaCodigoRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedPanelRoute: AuthenticatedPanelRoute,
   AuthenticatedMesaCodigoRoute: AuthenticatedMesaCodigoRoute,
 }
 
