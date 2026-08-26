@@ -17,10 +17,12 @@ export type TableSnapshot = {
     turnSeconds: number;
     gameVariant: string;
     specialRules: SpecialRules;
+    minBuyin: number;
+    maxBuyin: number;
   };
   players: {
     userId: string;
-    seat: number;
+    seat: number | null;
     displayName: string;
     chips: number;
     sittingOut: boolean;
@@ -29,9 +31,16 @@ export type TableSnapshot = {
   }[];
   hand: PublicHandState | null;
   myCards: string[] | null;
-  me: { userId: string; seat: number | null; isHost: boolean };
+  me: {
+    userId: string;
+    seat: number | null;
+    isHost: boolean;
+    chips: number;
+    isSpectator: boolean;
+  };
   serverNow: string;
 };
+
 
 export const createTable = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
