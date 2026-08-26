@@ -253,9 +253,10 @@ describe("pots, ties and all-ins", () => {
       ["Ks", "Kh", "2s", "5d", "6d"],
     );
     applyAction(state, 0, "raise", 100); // all-in for 100
-    applyAction(state, 1, "call");
-    applyAction(state, 2, "call");
-    while (!state.complete) applyAction(state, state.currentSeat!, "check");
+    applyAction(state, 1, "raise", 1000); // all-in
+    applyAction(state, 2, "call"); // all-in call -> board runs out
+    expect(state.complete).toBe(true);
+
 
     const total = state.players.reduce((sum, p) => sum + p.chips, 0);
     expect(total).toBe(2100); // chips are conserved
