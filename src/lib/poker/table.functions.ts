@@ -97,14 +97,14 @@ export const createTable = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error(error.message);
 
+    // The host joins as a spectator too and picks their own buy-in like everyone else.
     const displayName = await displayNameFor(db, context.userId);
-    const hostChips = Math.min(maxBuyin, Math.max(minBuyin, startingChips));
     const { error: seatError } = await db.from("table_players").insert({
       table_id: table.id,
       user_id: context.userId,
-      seat: 0,
+      seat: null,
       display_name: displayName,
-      chips: hostChips,
+      chips: 0,
     });
     if (seatError) throw new Error(seatError.message);
 
