@@ -118,6 +118,7 @@ export const joinTable = createServerFn({ method: "POST" })
     const { admin, getTableByCode, getPlayers, displayNameFor } = await import("./table.server");
     const db = await admin();
     const table = await getTableByCode(db, data.code);
+    if (table.status === "closed") throw new Error("Esa mesa ya fue cerrada por el anfitrión");
     const players = await getPlayers(db, table.id);
     const mine = players.find((p) => p.user_id === context.userId);
     if (mine) return { code: table.code };
