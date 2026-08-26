@@ -1,5 +1,14 @@
 import type { Json } from "@/integrations/supabase/types";
-import { applyAction, sanitize, startHand, type ActionKind, type HandState } from "./engine";
+import {
+  applyAction,
+  sanitize,
+  settleTimeouts,
+  startHand,
+  type ActionKind,
+  type GameVariant,
+  type HandState,
+  type SpecialRules,
+} from "./engine";
 
 const MAX_SEATS = 9;
 
@@ -33,6 +42,9 @@ export type TableRow = {
   status: string;
   button_seat: number | null;
   hand_no: number;
+  turn_seconds: number;
+  game_variant: string;
+  special_rules: Record<string, unknown> | null;
 };
 
 export type PlayerRow = {
@@ -43,6 +55,7 @@ export type PlayerRow = {
   display_name: string;
   chips: number;
   sitting_out: boolean;
+  last_seen_at: string;
 };
 
 export async function getTableByCode(db: AdminClient, code: string): Promise<TableRow> {
@@ -151,6 +164,9 @@ export async function dealNewHand(db: AdminClient, table: TableRow, userId: stri
     buttonSeat,
     smallBlind: table.small_blind,
     bigBlind: table.big_blind,
+    variant: (table.game_variant as GameVariant) ?? "omaha",
+    specialRules: (table.special_rules ?? {}) as SpecialRules,
+    turnSeconds: table.turn_seconds,
     seats: seated.map((p) => ({
       seat: p.seat,
       userId: p.user_id,
@@ -211,6 +227,13 @@ export async function performAction(
   const state = await loadSecret(db, latest.id);
   if (state.complete) throw new Error("La mano ya terminó");
 
+  // The turn clock is authoritative on the server: resolve expired turns first.
+  if (settleTimeouts(state)) {
+    await persistHand(db, latest.id, state);
+    await syncChips(db, table.id, state);
+    if (state.complete) throw new Error("Se te acabó el tiempo y la mano avanzó");
+  }
+
   const me = state.players.find((p) => p.userId === userId);
   if (!me) throw new Error("No estás en esta mano");
   if (state.currentSeat !== me.seat) throw new Error("No es tu turno");
@@ -219,4 +242,31 @@ export async function performAction(
   await persistHand(db, latest.id, next);
   await syncChips(db, table.id, next);
   return { complete: next.complete };
+}
+
+/** Touch presence so the table can tell who is still connected. */
+export async function touchPresence(db: AdminClient, tableId: string, userId: string) {
+  await db
+    .from("table_players")
+    .update({ last_seen_at: new Date().toISOString() })
+    .eq("table_id", tableId)
+    .eq("user_id", userId);
+}
+
+/**
+ * Applies any expired turn clocks on the current hand. Called from reads and
+ * writes so the hand never stalls on a disconnected player.
+ */
+export async function enforceTurnTimer(db: AdminClient, table: TableRow) {
+  const latest = await loadLatestHand(db, table.id);
+  if (!latest) return false;
+  const publicState = latest.public_state as unknown as HandState;
+  if (publicState.complete || !publicState.turnEndsAt) return false;
+  if (Date.now() < Date.parse(publicState.turnEndsAt)) return false;
+
+  const state = await loadSecret(db, latest.id);
+  if (!settleTimeouts(state)) return false;
+  await persistHand(db, latest.id, state);
+  await syncChips(db, table.id, state);
+  return true;
 }
