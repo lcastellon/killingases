@@ -57,6 +57,7 @@ function TableRoom() {
   const sendAction = useServerFn(act);
   const join = useServerFn(joinTable);
   const leave = useServerFn(leaveTable);
+  const adjustChips = useServerFn(setPlayerChips);
   const [busy, setBusy] = useState(false);
 
   const query = useQuery({
@@ -77,9 +78,15 @@ function TableRoom() {
   const data = query.data;
   const hand = data?.hand ?? null;
 
+  const spectators = useMemo(
+    () => (data ? data.players.filter((p) => p.seat === null) : []),
+    [data],
+  );
+
   const seats: SeatView[] = useMemo(() => {
     if (!data) return [];
     return data.players
+      .filter((p): p is (typeof data.players)[number] & { seat: number } => p.seat !== null)
       .slice()
       .sort((a, b) => a.seat - b.seat)
       .map((p) => {
@@ -106,6 +113,7 @@ function TableRoom() {
         } satisfies SeatView;
       });
   }, [data, hand]);
+
 
   const legal = useMemo(() => {
     if (!hand || data?.me.seat === null || data?.me.seat === undefined) return null;
