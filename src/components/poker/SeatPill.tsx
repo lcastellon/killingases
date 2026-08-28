@@ -3,7 +3,13 @@ import { cn } from "@/lib/utils";
 import type { SeatView } from "./Seat";
 
 /** Compact seat plate used around the oval table (StarsWorld-style layout). */
-export function SeatPill({ view }: { view: SeatView }) {
+export function SeatPill({
+  view,
+  onAvatarClick,
+}: {
+  view: SeatView;
+  onAvatarClick?: (() => void) | undefined;
+}) {
   return (
     <div className="flex flex-col items-center gap-1">
       {/* cartas */}
@@ -28,16 +34,24 @@ export function SeatPill({ view }: { view: SeatView }) {
           view.folded && "opacity-45",
         )}
       >
-        <span
+        <button
+          type="button"
+          onClick={view.isMe && onAvatarClick ? onAvatarClick : undefined}
+          disabled={!view.isMe || !onAvatarClick}
+          title={view.isMe ? "Cambiar tu avatar" : view.name}
           className={cn(
-            "grid h-8 w-8 shrink-0 place-items-center rounded-full border font-display text-sm",
+            "grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border font-display text-sm",
             view.isMe
-              ? "border-brass bg-brass/20 text-primary"
+              ? "border-brass bg-brass/20 text-primary hover:brightness-110"
               : "border-brass-soft/50 bg-felt/70 text-foreground",
           )}
         >
-          {view.name.slice(0, 2).toUpperCase()}
-        </span>
+          {view.avatarUrl ? (
+            <img src={view.avatarUrl} alt={view.name} className="h-full w-full object-cover" />
+          ) : (
+            view.name.slice(0, 2).toUpperCase()
+          )}
+        </button>
 
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-1">

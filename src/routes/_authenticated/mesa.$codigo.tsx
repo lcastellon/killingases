@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -24,6 +24,8 @@ import { useTableRealtime } from "@/hooks/useTableRealtime";
 import { TurnTimer } from "@/components/poker/TurnTimer";
 import { Showdown } from "@/components/poker/Showdown";
 import { ChipBank } from "@/components/poker/ChipBank";
+import { PlayerSettings } from "@/components/poker/PlayerSettings";
+import { applyFeltTheme } from "@/lib/poker/theme";
 
 
 export const Route = createFileRoute("/_authenticated/mesa/$codigo")({
@@ -64,6 +66,7 @@ function TableRoom() {
   const buy = useServerFn(buyInTable);
   const [busy, setBusy] = useState(false);
   const [buyin, setBuyin] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const query = useQuery({
     queryKey: ["mesa", codigo],
@@ -81,6 +84,10 @@ function TableRoom() {
   useTableRealtime(query.data?.table.id, refetch);
 
   const data = query.data;
+  const feltTheme = query.data?.me.feltTheme;
+  useEffect(() => {
+    applyFeltTheme(feltTheme);
+  }, [feltTheme]);
   const hand = data?.hand ?? null;
 
   const spectators = useMemo(
@@ -115,6 +122,7 @@ function TableRoom() {
           winAmount: winner?.amount,
           handName: winner?.handName,
           online: p.online,
+          avatarUrl: p.avatarUrl,
         } satisfies SeatView;
       });
   }, [data, hand]);
@@ -192,6 +200,23 @@ function TableRoom() {
           </button>
         </header>
 
+        <div className="mt-2 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            className="flex items-center gap-2 rounded-full border border-brass-soft/50 bg-card px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <span className="grid h-6 w-6 place-items-center overflow-hidden rounded-full border border-brass bg-felt/60 font-display text-[0.6rem] text-primary">
+              {data.me.avatarUrl ? (
+                <img src={data.me.avatarUrl} alt="Tu avatar" className="h-full w-full object-cover" />
+              ) : (
+                data.me.displayName.slice(0, 2).toUpperCase()
+              )}
+            </span>
+            Mi perfil
+          </button>
+        </div>
+
         <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
           <span>
             Ciegas {data.table.smallBlind}/{data.table.bigBlind} · No Limit Omaha
@@ -200,7 +225,12 @@ function TableRoom() {
         </div>
 
         {/* Mesa */}
-        <PokerTable seats={seats} pot={hand?.pot ?? 0} board={hand?.board ?? []} />
+        <PokerTable
+          seats={seats}
+          pot={hand?.pot ?? 0}
+          board={hand?.board ?? []}
+          onAvatarClick={() => setSettingsOpen(true)}
+        />
 
 
         {/* Mis fichas */}
@@ -415,6 +445,16 @@ function TableRoom() {
           )}
         </footer>
       </div>
+
+      <PlayerSettings
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        userId={data.me.userId}
+        displayName={data.me.displayName}
+        avatarUrl={data.me.avatarUrl}
+        feltTheme={data.me.feltTheme}
+        onSaved={refetch}
+      />
     </main>
   );
 }

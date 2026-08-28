@@ -471,3 +471,65 @@ export async function hostPanelData(db: AdminClient, hostId: string) {
     })),
   };
 }
+
+export type ProfilePrefs = {
+  displayName: string;
+  avatarPath: string | null;
+  feltTheme: string;
+};
+
+/** Firma URLs temporales para los avatares (bucket privado). */
+export async function avatarUrlsFor(
+  db: AdminClient,
+  userIds: string[],
+): Promise<Record<string, string | null>> {
+  const out: Record<string, string | null> = {};
+  if (userIds.length === 0) return out;
+  const { data } = await db.from("profiles").select("id, avatar_path").in("id", userIds);
+  for (const row of data ?? []) {
+    const path = (row as { avatar_path: string | null }).avatar_path;
+    if (!path) {
+      out[row.id] = null;
+      continue;
+    }
+    const signed = await db.storage.from("avatars").createSignedUrl(path, 60 * 60);
+    out[row.id] = signed.data?.signedUrl ?? null;
+  }
+  return out;
+}
+
+export async function profilePrefs(db: AdminClient, userId: string): Promise<ProfilePrefs> {
+  const { data } = await db
+    .from("profiles")
+    .select("display_name, avatar_path, felt_theme")
+    .eq("id", userId)
+    .maybeSingle();
+  const row = data as
+    | { display_name: string; avatar_path: string | null; felt_theme: string | null }
+    | null;
+  return {
+    displayName: row?.display_name ?? "Jugador",
+    avatarPath: row?.avatar_path ?? null,
+    feltTheme: row?.felt_theme ?? "esmeralda",
+  };
+}
+
+export async function saveProfilePrefs(
+  db: AdminClient,
+  userId: string,
+  patch: { displayName?: string; avatarPath?: string | null; feltTheme?: string },
+) {
+  const update: { display_name?: string; avatar_path?: string | null; felt_theme?: string } = {};
+  if (patch.displayName !== undefined) update.display_name = patch.displayName;
+  if (patch.avatarPath !== undefined) update.avatar_path = patch.avatarPath;
+  if (patch.feltTheme !== undefined) update.felt_theme = patch.feltTheme;
+  if (Object.keys(update).length === 0) return;
+  const { error } = await db.from("profiles").update(update).eq("id", userId);
+  if (error) throw new Error(error.message);
+  if (patch.displayName !== undefined) {
+    await db
+      .from("table_players")
+      .update({ display_name: patch.displayName })
+      .eq("user_id", userId);
+  }
+}

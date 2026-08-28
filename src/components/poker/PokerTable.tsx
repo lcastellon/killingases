@@ -20,11 +20,13 @@ export function PokerTable({
   pot,
   board,
   maxSeats = 8,
+  onAvatarClick,
 }: {
   seats: SeatView[];
   pot: number;
   board: string[];
   maxSeats?: number;
+  onAvatarClick?: (() => void) | undefined;
 }) {
   const slots = Math.min(Math.max(maxSeats, 2), RING.length);
 
@@ -91,7 +93,7 @@ export function PokerTable({
               className="absolute -translate-x-1/2 -translate-y-1/2"
               style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
             >
-              {view ? <SeatPill view={view} /> : <EmptySeat />}
+              {view ? <SeatPill view={view} onAvatarClick={onAvatarClick} /> : <EmptySeat />}
             </div>
           );
         })}
