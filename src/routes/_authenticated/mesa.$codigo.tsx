@@ -463,7 +463,7 @@ function TableRoom() {
             <ul className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
               {spectators.map((p) => (
                 <li key={p.userId} className="rounded-full border border-border/60 px-2 py-0.5">
-                  {p.displayName} · {p.chips.toLocaleString("es-MX")}
+                  {p.displayName}
                 </li>
               ))}
             </ul>
