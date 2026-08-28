@@ -67,6 +67,8 @@ function TableRoom() {
   const [busy, setBusy] = useState(false);
   const [buyin, setBuyin] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [seatTarget, setSeatTarget] = useState<number | null>(null);
+
 
   const query = useQuery({
     queryKey: ["mesa", codigo],
