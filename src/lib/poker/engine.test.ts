@@ -307,7 +307,7 @@ describe("pots, ties and all-ins", () => {
       expect(entry.description).toContain("de la mesa");
     }
     expect(state.showdown[0]!.seat).toBe(0);
-    expect(state.showdown[0]!.handName).toBe("Escalera de color");
+    expect(state.showdown[0]!.handName).toBe("escalera real");
   });
 });
 
