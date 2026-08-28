@@ -125,8 +125,6 @@ export const joinTable = createServerFn({ method: "POST" })
     if (table.status === "closed") throw new Error("Esa mesa ya fue cerrada por el anfitrión");
     const players = await getPlayers(db, table.id);
     const mine = players.find((p) => p.user_id === context.userId);
-    const avatars = await avatarUrlsFor(db, players.map((p) => p.user_id));
-    const prefs = await profilePrefs(db, context.userId);
     if (mine) return { code: table.code };
 
     // New players enter as spectators with 0 chips; only the host hands out chips.
