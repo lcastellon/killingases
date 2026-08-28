@@ -16,6 +16,7 @@ export type SeatView = {
   winAmount?: number | undefined;
   handName?: string | undefined;
   online?: boolean | undefined;
+  avatarUrl?: string | null | undefined;
 };
 
 export function Seat({ view }: { view: SeatView }) {
