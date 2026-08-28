@@ -142,16 +142,18 @@ export const joinTable = createServerFn({ method: "POST" })
 
 export const buyInTable = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { code: string; amount: number }) => ({
+  .inputValidator((input: { code: string; amount: number; seat?: number | null }) => ({
     code: String(input.code ?? "").trim().toUpperCase(),
     amount: Math.trunc(Number(input.amount ?? 0)),
+    seat: input.seat === undefined || input.seat === null ? null : Math.trunc(Number(input.seat)),
   }))
   .handler(async ({ data, context }) => {
     const { admin, getTableByCode, buyIn } = await import("./table.server");
     const db = await admin();
     const table = await getTableByCode(db, data.code);
-    return buyIn(db, table, context.userId, data.amount);
+    return buyIn(db, table, context.userId, data.amount, data.seat);
   });
+
 
 export const listMyTables = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
