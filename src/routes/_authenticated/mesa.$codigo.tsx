@@ -375,14 +375,20 @@ function TableRoom() {
         {amAtTable && (
           <section className="mt-4 rounded-2xl border border-brass-soft/40 bg-card/80 p-3">
             <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
-                  Fichas en la mesa
+              {amSeated ? (
+                <div>
+                  <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+                    Fichas en la mesa
+                  </p>
+                  <p className="tabular font-display text-3xl text-primary">
+                    {data.me.chips.toLocaleString("es-MX")}
+                  </p>
+                </div>
+              ) : (
+                <p className="max-w-[12rem] text-xs text-muted-foreground">
+                  Todavía no estás sentado: elige tu compra para llevar fichas del banco a la mesa.
                 </p>
-                <p className="tabular font-display text-3xl text-primary">
-                  {data.me.chips.toLocaleString("es-MX")}
-                </p>
-              </div>
+              )}
               <div className="text-right">
                 <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
                   Banco del club
@@ -396,6 +402,7 @@ function TableRoom() {
                 </p>
               </div>
             </div>
+
 
             {!amSeated && (
               <div className="mt-3 border-t border-border/50 pt-3">
