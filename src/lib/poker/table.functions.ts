@@ -267,7 +267,9 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
       reconcileSeats,
       avatarUrlsFor,
       profilePrefs,
+      getBank,
     } = await import("./table.server");
+
     const db = await admin();
     const table = await getTableByCode(db, data.code);
     await enforceTurnTimer(db, table);
