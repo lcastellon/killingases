@@ -76,6 +76,9 @@ function TableRoom() {
     queryKey: ["mesa", codigo],
     queryFn: () => snapshot({ data: { code: codigo } }),
     refetchInterval: 2000,
+    // La vista previa vive en un iframe que casi nunca tiene el foco: sin esto
+    // el sondeo se pausa y la mesa se queda con datos viejos.
+    refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
     refetchOnMount: "always",
