@@ -29,6 +29,7 @@ export type TableSnapshot = {
     sittingOut: boolean;
     lastSeenAt: string;
     online: boolean;
+    avatarUrl: string | null;
   }[];
   hand: PublicHandState | null;
   myCards: string[] | null;
@@ -38,6 +39,9 @@ export type TableSnapshot = {
     isHost: boolean;
     chips: number;
     isSpectator: boolean;
+    displayName: string;
+    avatarUrl: string | null;
+    feltTheme: string;
   };
   serverNow: string;
 };
@@ -121,6 +125,8 @@ export const joinTable = createServerFn({ method: "POST" })
     if (table.status === "closed") throw new Error("Esa mesa ya fue cerrada por el anfitrión");
     const players = await getPlayers(db, table.id);
     const mine = players.find((p) => p.user_id === context.userId);
+    const avatars = await avatarUrlsFor(db, players.map((p) => p.user_id));
+    const prefs = await profilePrefs(db, context.userId);
     if (mine) return { code: table.code };
 
     // New players enter as spectators with 0 chips; only the host hands out chips.
@@ -211,8 +217,16 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { code: string }) => ({ code: String(input.code ?? "").trim().toUpperCase() }))
   .handler(async ({ data, context }): Promise<TableSnapshot> => {
-    const { admin, getTableByCode, getPlayers, enforceTurnTimer, touchPresence, reconcileSeats } =
-      await import("./table.server");
+    const {
+      admin,
+      getTableByCode,
+      getPlayers,
+      enforceTurnTimer,
+      touchPresence,
+      reconcileSeats,
+      avatarUrlsFor,
+      profilePrefs,
+    } = await import("./table.server");
     const db = await admin();
     const table = await getTableByCode(db, data.code);
     await enforceTurnTimer(db, table);
@@ -241,6 +255,8 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
     }
 
     const mine = players.find((p) => p.user_id === context.userId);
+    const avatars = await avatarUrlsFor(db, players.map((p) => p.user_id));
+    const prefs = await profilePrefs(db, context.userId);
 
     return {
       table: {
@@ -268,6 +284,7 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
         sittingOut: p.sitting_out,
         lastSeenAt: p.last_seen_at,
         online: Date.now() - Date.parse(p.last_seen_at) < 20_000,
+        avatarUrl: avatars[p.user_id] ?? null,
       })),
       hand: (handRow?.public_state as unknown as PublicHandState) ?? null,
       myCards,
@@ -278,6 +295,9 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
           table.host_id === context.userId && isHostEmail(context.claims.email as string | undefined),
         chips: mine?.chips ?? 0,
         isSpectator: !mine || mine.seat === null,
+        displayName: prefs.displayName,
+        avatarUrl: avatars[context.userId] ?? null,
+        feltTheme: prefs.feltTheme,
       },
 
       serverNow: new Date().toISOString(),
@@ -342,4 +362,31 @@ export const addPlayerToTable = createServerFn({ method: "POST" })
     });
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+export const updateMyProfile = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: { displayName?: string; avatarPath?: string | null; feltTheme?: string }) => input,
+  )
+  .handler(async ({ data, context }) => {
+    const { admin, saveProfilePrefs, profilePrefs } = await import("./table.server");
+    const db = await admin();
+    const patch: { displayName?: string; avatarPath?: string | null; feltTheme?: string } = {};
+    if (data.displayName !== undefined) {
+      const name = String(data.displayName).trim().slice(0, 24);
+      if (name.length < 2) throw new Error("El nombre debe tener al menos 2 caracteres");
+      patch.displayName = name;
+    }
+    if (data.avatarPath !== undefined) {
+      if (data.avatarPath === null) patch.avatarPath = null;
+      else {
+        const path = String(data.avatarPath);
+        if (!path.startsWith(`${context.userId}/`)) throw new Error("Imagen no válida");
+        patch.avatarPath = path;
+      }
+    }
+    if (data.feltTheme !== undefined) patch.feltTheme = String(data.feltTheme).slice(0, 24);
+    await saveProfilePrefs(db, context.userId, patch);
+    return await profilePrefs(db, context.userId);
   });
