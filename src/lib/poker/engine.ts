@@ -1,4 +1,4 @@
-import { describeOmaha, evaluateOmaha, newDeck, shuffle, type Card } from "./cards";
+import { describeOmaha, evaluateOmaha, handTitle, newDeck, shuffle, type Card } from "./cards";
 
 export type Street = "preflop" | "flop" | "turn" | "river" | "showdown";
 
@@ -337,7 +337,9 @@ function advance(state: HandState, now: number = Date.now()) {
     const winner = contenders[0]!;
     winner.chips += state.pot;
     state.winners = [{ seat: winner.seat, name: winner.name, amount: state.pot }];
-    state.log.push(`${winner.name} gana ${state.pot} sin showdown`);
+    state.log.push(
+      `${winner.name} gana ${state.pot.toLocaleString("es-MX")} sin showdown`,
+    );
     state.pot = 0;
     setTurn(state, null, now);
     state.complete = true;
@@ -459,7 +461,7 @@ function settle(state: HandState) {
           seat: w.seat,
           name: w.name,
           amount: payout,
-          handName: evaluation.name,
+          handName: handTitle(evaluation),
           bestCards: evaluation.cards,
         });
       }
@@ -472,7 +474,7 @@ function settle(state: HandState) {
       return {
         seat: p.seat,
         name: p.name,
-        handName: evaluation.name,
+        handName: handTitle(evaluation),
         cards: evaluation.cards,
         holeUsed: evaluation.holeUsed,
         boardUsed: evaluation.boardUsed,
@@ -484,7 +486,9 @@ function settle(state: HandState) {
 
   state.winners = [...winnersBySeat.values()].sort((a, b) => b.amount - a.amount);
   for (const w of state.winners) {
-    state.log.push(`${w.name} gana ${w.amount} con ${w.handName}`);
+    state.log.push(
+      `${w.name} gana ${w.amount.toLocaleString("es-MX")} con ${w.handName ?? "la mano"}`,
+    );
   }
   state.pot = 0;
   setTurn(state, null);
