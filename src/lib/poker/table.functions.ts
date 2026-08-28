@@ -38,6 +38,8 @@ export type TableSnapshot = {
     seat: number | null;
     isHost: boolean;
     chips: number;
+    bankChips: number;
+
     isSpectator: boolean;
     displayName: string;
     avatarUrl: string | null;
