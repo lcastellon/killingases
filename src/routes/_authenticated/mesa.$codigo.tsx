@@ -258,7 +258,15 @@ function TableRoom() {
             amAtTable && !amSeated
               ? (seat) => {
                   setSeatTarget(seat);
-                  setBuyin(String(Math.max(data.table.minBuyin, data.me.chips)));
+                  setBuyin(
+                    String(
+                      Math.min(
+                        Math.min(data.table.maxBuyin, data.me.bankChips),
+                        Math.max(data.table.minBuyin, data.me.chips),
+                      ),
+                    ),
+                  );
+
                 }
               : undefined
           }
