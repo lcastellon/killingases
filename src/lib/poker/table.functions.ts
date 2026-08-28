@@ -335,6 +335,8 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
         isHost:
           table.host_id === context.userId && isHostEmail(context.claims.email as string | undefined),
         chips: mine?.chips ?? 0,
+        bankChips: myBank,
+
         isSpectator: !mine || mine.seat === null,
         displayName: prefs.displayName,
         avatarUrl: avatars[context.userId] ?? null,
