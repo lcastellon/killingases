@@ -301,13 +301,23 @@ function TableRoom() {
                   disabled={busy}
                   onClick={() =>
                     void run(async () => {
-                      const target = Number(buyin) || data.table.minBuyin;
+                      const maxAllowed = Math.min(data.table.maxBuyin, data.me.bankChips);
+                      if (maxAllowed < data.table.minBuyin)
+                        throw new Error(
+                          `Tu banco tiene ${data.me.bankChips.toLocaleString("es-MX")} fichas; pide fichas al anfitrión`,
+                        );
+                      const target = Math.min(
+                        maxAllowed,
+                        Math.max(data.table.minBuyin, Number(buyin) || data.table.minBuyin),
+                      );
                       const delta = target - data.me.chips;
                       if (delta <= 0) throw new Error("Elige una cantidad mayor a tus fichas");
                       await buy({ data: { code: codigo, amount: delta, seat: seatTarget } });
                       setSeatTarget(null);
                       setBuyin("");
+                      refetch();
                     })
+
                   }
                   className="flex-1 rounded-xl bg-primary px-4 py-2 font-display tracking-wide text-primary-foreground disabled:opacity-50"
                 >
