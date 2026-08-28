@@ -76,6 +76,9 @@ function TableRoom() {
     queryKey: ["mesa", codigo],
     queryFn: () => snapshot({ data: { code: codigo } }),
     refetchInterval: 2000,
+    // La vista previa vive en un iframe que casi nunca tiene el foco: sin esto
+    // el sondeo se pausa y la mesa se queda con datos viejos.
+    refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
     refetchOnMount: "always",
@@ -255,7 +258,15 @@ function TableRoom() {
             amAtTable && !amSeated
               ? (seat) => {
                   setSeatTarget(seat);
-                  setBuyin(String(Math.max(data.table.minBuyin, data.me.chips)));
+                  setBuyin(
+                    String(
+                      Math.min(
+                        Math.min(data.table.maxBuyin, data.me.bankChips),
+                        Math.max(data.table.minBuyin, data.me.chips),
+                      ),
+                    ),
+                  );
+
                 }
               : undefined
           }
@@ -298,13 +309,23 @@ function TableRoom() {
                   disabled={busy}
                   onClick={() =>
                     void run(async () => {
-                      const target = Number(buyin) || data.table.minBuyin;
+                      const maxAllowed = Math.min(data.table.maxBuyin, data.me.bankChips);
+                      if (maxAllowed < data.table.minBuyin)
+                        throw new Error(
+                          `Tu banco tiene ${data.me.bankChips.toLocaleString("es-MX")} fichas; pide fichas al anfitrión`,
+                        );
+                      const target = Math.min(
+                        maxAllowed,
+                        Math.max(data.table.minBuyin, Number(buyin) || data.table.minBuyin),
+                      );
                       const delta = target - data.me.chips;
                       if (delta <= 0) throw new Error("Elige una cantidad mayor a tus fichas");
                       await buy({ data: { code: codigo, amount: delta, seat: seatTarget } });
                       setSeatTarget(null);
                       setBuyin("");
+                      refetch();
                     })
+
                   }
                   className="flex-1 rounded-xl bg-primary px-4 py-2 font-display tracking-wide text-primary-foreground disabled:opacity-50"
                 >
@@ -372,14 +393,20 @@ function TableRoom() {
         {amAtTable && (
           <section className="mt-4 rounded-2xl border border-brass-soft/40 bg-card/80 p-3">
             <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
-                  Fichas en la mesa
+              {amSeated ? (
+                <div>
+                  <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+                    Fichas en la mesa
+                  </p>
+                  <p className="tabular font-display text-3xl text-primary">
+                    {data.me.chips.toLocaleString("es-MX")}
+                  </p>
+                </div>
+              ) : (
+                <p className="max-w-[12rem] text-xs text-muted-foreground">
+                  Todavía no estás sentado: elige tu compra para llevar fichas del banco a la mesa.
                 </p>
-                <p className="tabular font-display text-3xl text-primary">
-                  {data.me.chips.toLocaleString("es-MX")}
-                </p>
-              </div>
+              )}
               <div className="text-right">
                 <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
                   Banco del club
@@ -393,6 +420,7 @@ function TableRoom() {
                 </p>
               </div>
             </div>
+
 
             {!amSeated && (
               <div className="mt-3 border-t border-border/50 pt-3">
@@ -460,7 +488,7 @@ function TableRoom() {
             <ul className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
               {spectators.map((p) => (
                 <li key={p.userId} className="rounded-full border border-border/60 px-2 py-0.5">
-                  {p.displayName} · {p.chips.toLocaleString("es-MX")}
+                  {p.displayName}
                 </li>
               ))}
             </ul>
