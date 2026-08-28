@@ -270,13 +270,15 @@ function TableRoom() {
               </h2>
               <p className="mt-1 text-xs text-muted-foreground">
                 Elige tus fichas entre {data.table.minBuyin.toLocaleString("es-MX")} y{" "}
-                {data.table.maxBuyin.toLocaleString("es-MX")}.
+                {Math.min(data.table.maxBuyin, data.me.bankChips).toLocaleString("es-MX")}. Banco
+                del club: {data.me.bankChips.toLocaleString("es-MX")}.
               </p>
               <input
                 type="number"
                 min={data.table.minBuyin}
-                max={data.table.maxBuyin}
+                max={Math.min(data.table.maxBuyin, data.me.bankChips)}
                 step={data.table.bigBlind}
+
                 inputMode="numeric"
                 value={buyin}
                 onChange={(e) => setBuyin(e.target.value)}
