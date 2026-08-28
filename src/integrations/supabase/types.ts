@@ -170,6 +170,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_path: string | null
+          bank_chips: number
           created_at: string
           display_name: string
           felt_theme: string
@@ -177,6 +178,7 @@ export type Database = {
         }
         Insert: {
           avatar_path?: string | null
+          bank_chips?: number
           created_at?: string
           display_name?: string
           felt_theme?: string
@@ -184,6 +186,7 @@ export type Database = {
         }
         Update: {
           avatar_path?: string | null
+          bank_chips?: number
           created_at?: string
           display_name?: string
           felt_theme?: string
