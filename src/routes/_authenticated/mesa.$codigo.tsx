@@ -13,7 +13,6 @@ import {
   leaveTable,
   rebuyTable,
   resetTable,
-  setPlayerChips,
 } from "@/lib/poker/table.functions";
 import { legalActions, type HandState } from "@/lib/poker/engine";
 import { evaluateOmaha } from "@/lib/poker/cards";
@@ -25,7 +24,6 @@ import { ActionBar } from "@/components/poker/ActionBar";
 import { useTableRealtime } from "@/hooks/useTableRealtime";
 import { TurnTimer } from "@/components/poker/TurnTimer";
 import { Showdown } from "@/components/poker/Showdown";
-import { ChipBank } from "@/components/poker/ChipBank";
 import { PlayerSettings } from "@/components/poker/PlayerSettings";
 import { applyFeltTheme } from "@/lib/poker/theme";
 
@@ -64,7 +62,6 @@ function TableRoom() {
   const sendAction = useServerFn(act);
   const join = useServerFn(joinTable);
   const leave = useServerFn(leaveTable);
-  const adjustChips = useServerFn(setPlayerChips);
   const buy = useServerFn(buyInTable);
   const rebuy = useServerFn(rebuyTable);
   const resetChips = useServerFn(resetTable);
@@ -439,25 +436,8 @@ function TableRoom() {
           </section>
         )}
 
-        {/* Banco de fichas (solo anfitrión) */}
-        {data.me.isHost && (
-          <div className="mt-3">
-            <ChipBank
-              players={data.players.map((p) => ({
-                userId: p.userId,
-                displayName: p.displayName,
-                chips: p.chips,
-                seat: p.seat,
-              }))}
-              minBuyin={data.table.minBuyin}
-              maxBuyin={data.table.maxBuyin}
-              disabled={busy || Boolean(hand && !hand.complete)}
-              onAdjust={(userId, delta) =>
-                void run(() => adjustChips({ data: { code: codigo, userId, delta } }))
-              }
-            />
-          </div>
-        )}
+
+
 
         {/* Mis cartas */}
         {data.myCards && (
