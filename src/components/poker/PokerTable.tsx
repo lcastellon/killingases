@@ -21,35 +21,37 @@ export function PokerTable({
   board,
   maxSeats = 8,
   onAvatarClick,
+  onEmptySeatClick,
 }: {
   seats: SeatView[];
   pot: number;
   board: string[];
   maxSeats?: number;
   onAvatarClick?: (() => void) | undefined;
+  onEmptySeatClick?: ((seat: number) => void) | undefined;
 }) {
   const slots = Math.min(Math.max(maxSeats, 2), RING.length);
 
-  // Coloca a cada jugador en una silla y deja el resto vacías.
-  const filled: Array<SeatView | null> = Array.from({ length: slots }, () => null);
-  const sorted = [...seats].sort((a, b) => a.seat - b.seat);
-  sorted.forEach((view, i) => {
-    const preferred = ((view.seat % slots) + slots) % slots;
-    let idx = filled[preferred] === null ? preferred : -1;
-    if (idx === -1) {
-      for (let k = 0; k < slots; k++) {
-        const candidate = (i + k) % slots;
-        if (filled[candidate] === null) {
-          idx = candidate;
-          break;
-        }
-      }
-    }
-    if (idx !== -1) filled[idx] = view;
+  // Cada silla corresponde al número de asiento real (0..slots-1).
+  const filled: Array<{ seatNo: number; view: SeatView | null }> = Array.from(
+    { length: slots },
+    (_, i) => ({ seatNo: i, view: null }),
+  );
+  const overflow: SeatView[] = [];
+  [...seats]
+    .sort((a, b) => a.seat - b.seat)
+    .forEach((view) => {
+      const preferred = ((view.seat % slots) + slots) % slots;
+      if (filled[preferred]!.view === null) filled[preferred]!.view = view;
+      else overflow.push(view);
+    });
+  overflow.forEach((view) => {
+    const slot = filled.find((s) => s.view === null);
+    if (slot) slot.view = view;
   });
 
   // Rota para que el jugador local quede abajo.
-  const meIndex = filled.findIndex((v) => v?.isMe);
+  const meIndex = filled.findIndex((s) => s.view?.isMe);
   const ordered =
     meIndex > 0 ? [...filled.slice(meIndex), ...filled.slice(0, meIndex)] : filled;
 
@@ -85,15 +87,23 @@ export function PokerTable({
         </div>
 
         {/* Asientos alrededor del óvalo */}
-        {ordered.map((view, i) => {
+        {ordered.map((slot, i) => {
           const pos = RING[i]!;
           return (
             <div
-              key={view ? `p-${view.seat}` : `empty-${i}`}
+              key={slot.view ? `p-${slot.view.seat}` : `empty-${slot.seatNo}`}
               className="absolute -translate-x-1/2 -translate-y-1/2"
               style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
             >
-              {view ? <SeatPill view={view} onAvatarClick={onAvatarClick} /> : <EmptySeat />}
+              {slot.view ? (
+                <SeatPill view={slot.view} onAvatarClick={onAvatarClick} />
+              ) : (
+                <EmptySeat
+                  onClick={
+                    onEmptySeatClick ? () => onEmptySeatClick(slot.seatNo) : undefined
+                  }
+                />
+              )}
             </div>
           );
         })}
@@ -101,3 +111,4 @@ export function PokerTable({
     </div>
   );
 }
+
