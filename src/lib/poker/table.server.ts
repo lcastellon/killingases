@@ -519,10 +519,10 @@ export async function saveProfilePrefs(
   userId: string,
   patch: { displayName?: string; avatarPath?: string | null; feltTheme?: string },
 ) {
-  const update: Record<string, unknown> = {};
-  if (patch.displayName !== undefined) update["display_name"] = patch.displayName;
-  if (patch.avatarPath !== undefined) update["avatar_path"] = patch.avatarPath;
-  if (patch.feltTheme !== undefined) update["felt_theme"] = patch.feltTheme;
+  const update: { display_name?: string; avatar_path?: string | null; felt_theme?: string } = {};
+  if (patch.displayName !== undefined) update.display_name = patch.displayName;
+  if (patch.avatarPath !== undefined) update.avatar_path = patch.avatarPath;
+  if (patch.feltTheme !== undefined) update.felt_theme = patch.feltTheme;
   if (Object.keys(update).length === 0) return;
   const { error } = await db.from("profiles").update(update).eq("id", userId);
   if (error) throw new Error(error.message);
