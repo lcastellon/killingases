@@ -182,8 +182,22 @@ function TableRoom() {
 
   const amSeated = data.me.seat !== null;
   const amAtTable = data.players.some((p) => p.userId === data.me.userId);
-  const seatedCount = data.players.filter((p) => p.seat !== null).length;
-  const canDeal = data.me.isHost && (!hand || hand.complete) && seatedCount >= 2;
+  const seatedPlayers = data.players.filter((p) => p.seat !== null);
+  const seatedCount = seatedPlayers.length;
+  const handOver = !hand || hand.complete;
+  const brokePlayers = seatedPlayers.filter((p) => p.chips < data.table.bigBlind);
+  const rebuyTarget = Math.min(
+    data.table.maxBuyin,
+    Math.max(data.table.minBuyin, data.table.startingChips),
+  );
+  const canDeal = data.me.isHost && handOver && seatedCount >= 2 && brokePlayers.length === 0;
+  const withChips = data.players.filter((p) => p.chips >= data.table.bigBlind);
+  const gameOver =
+    handOver && data.players.length >= 2 && withChips.length <= 1 && (hand?.handNo ?? 0) > 0;
+  const overallWinner = withChips[0] ?? null;
+  const iAmBroke = data.me.chips < data.table.bigBlind;
+
+
 
 
   return (
