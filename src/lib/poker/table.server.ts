@@ -257,6 +257,47 @@ export async function listHostTables(db: AdminClient, hostId: string) {
   }));
 }
 
+/**
+ * Recarga de fichas de práctica: el jugador vuelve con el stack inicial de la
+ * mesa (acotado al máximo permitido) cuando ya no le quedan fichas.
+ */
+export async function rebuyChips(db: AdminClient, table: TableRow, userId: string) {
+  if (await handInProgress(db, table.id))
+    throw new Error("Espera a que termine la mano en curso para recargar fichas");
+
+  const players = await getPlayers(db, table.id);
+  const me = players.find((p) => p.user_id === userId);
+  if (!me) throw new Error("Primero entra a la mesa");
+
+  const target = Math.min(table.max_buyin, Math.max(table.min_buyin, table.starting_chips));
+  if (me.chips >= target)
+    throw new Error("Todavía tienes fichas suficientes para jugar");
+
+  const { error } = await db.from("table_players").update({ chips: target }).eq("id", me.id);
+  if (error) throw new Error(error.message);
+
+  await reconcileSeats(db, table);
+  return { chips: target };
+}
+
+/** El anfitrión devuelve a todos el stack inicial (fichas de práctica). */
+export async function resetTableStacks(db: AdminClient, table: TableRow, hostId: string) {
+  if (table.host_id !== hostId) throw new Error("Solo el anfitrión puede reiniciar la mesa");
+  if (await handInProgress(db, table.id))
+    throw new Error("Espera a que termine la mano en curso para reiniciar la mesa");
+
+  const target = Math.min(table.max_buyin, Math.max(table.min_buyin, table.starting_chips));
+  const { error } = await db
+    .from("table_players")
+    .update({ chips: target })
+    .eq("table_id", table.id);
+  if (error) throw new Error(error.message);
+
+  await reconcileSeats(db, table);
+  return { chips: target };
+}
+
+
 /** Host-only chip bank: add or remove chips for a player between hands. */
 export async function adjustPlayerChips(
   db: AdminClient,

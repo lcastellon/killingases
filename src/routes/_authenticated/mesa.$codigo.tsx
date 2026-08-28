@@ -11,6 +11,8 @@ import {
   getTableSnapshot,
   joinTable,
   leaveTable,
+  rebuyTable,
+  resetTable,
   setPlayerChips,
 } from "@/lib/poker/table.functions";
 import { legalActions, type HandState } from "@/lib/poker/engine";
@@ -64,10 +66,13 @@ function TableRoom() {
   const leave = useServerFn(leaveTable);
   const adjustChips = useServerFn(setPlayerChips);
   const buy = useServerFn(buyInTable);
+  const rebuy = useServerFn(rebuyTable);
+  const resetChips = useServerFn(resetTable);
   const [busy, setBusy] = useState(false);
   const [buyin, setBuyin] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [seatTarget, setSeatTarget] = useState<number | null>(null);
+  const [finalDismissed, setFinalDismissed] = useState(false);
 
 
   const query = useQuery({
@@ -109,13 +114,15 @@ function TableRoom() {
         const isMe = p.userId === data.me.userId;
         const cards = isMe ? (data.myCards ?? revealed) : revealed;
         const winner = hand?.winners?.find((w) => w.seat === p.seat);
+        const handOver = Boolean(hand?.complete);
         return {
           seat: p.seat,
           name: p.displayName,
           chips: handPlayer?.chips ?? p.chips,
-          bet: handPlayer?.bet ?? 0,
-          folded: handPlayer?.folded ?? false,
-          allIn: handPlayer?.allIn ?? false,
+          // Al terminar la mano se limpian apuestas y etiquetas de la ronda.
+          bet: handOver ? 0 : (handPlayer?.bet ?? 0),
+          folded: handOver ? false : (handPlayer?.folded ?? false),
+          allIn: handOver ? false : (handPlayer?.allIn ?? false),
           isTurn: hand?.currentSeat === p.seat,
           isButton: hand ? hand.buttonSeat === p.seat : data.table.buttonSeat === p.seat,
           isMe,
@@ -123,6 +130,7 @@ function TableRoom() {
           cardCount: handPlayer ? 4 : 0,
           winAmount: winner?.amount,
           handName: winner?.handName,
+
           online: p.online,
           avatarUrl: p.avatarUrl,
         } satisfies SeatView;
@@ -179,8 +187,22 @@ function TableRoom() {
 
   const amSeated = data.me.seat !== null;
   const amAtTable = data.players.some((p) => p.userId === data.me.userId);
-  const seatedCount = data.players.filter((p) => p.seat !== null).length;
-  const canDeal = data.me.isHost && (!hand || hand.complete) && seatedCount >= 2;
+  const seatedPlayers = data.players.filter((p) => p.seat !== null);
+  const seatedCount = seatedPlayers.length;
+  const handOver = !hand || hand.complete;
+  const brokePlayers = seatedPlayers.filter((p) => p.chips < data.table.bigBlind);
+  const rebuyTarget = Math.min(
+    data.table.maxBuyin,
+    Math.max(data.table.minBuyin, data.table.startingChips),
+  );
+  const canDeal = data.me.isHost && handOver && seatedCount >= 2 && brokePlayers.length === 0;
+  const withChips = data.players.filter((p) => p.chips >= data.table.bigBlind);
+  const gameOver =
+    handOver && data.players.length >= 2 && withChips.length <= 1 && (hand?.handNo ?? 0) > 0;
+  const overallWinner = withChips[0] ?? null;
+  const iAmBroke = data.me.chips < data.table.bigBlind;
+
+
 
 
   return (
@@ -295,6 +317,57 @@ function TableRoom() {
         )}
 
 
+
+        {/* Partida terminada */}
+        {gameOver && !finalDismissed && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur">
+            <div className="w-full max-w-sm rounded-2xl border border-brass bg-card p-5 text-center shadow-table">
+              <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+                Partida terminada
+              </p>
+              <h2 className="mt-1 font-display text-2xl tracking-wide text-primary">
+                {overallWinner
+                  ? `${overallWinner.displayName} ganó todas las fichas`
+                  : "Ya no hay fichas en juego"}
+              </h2>
+              <div className="mt-4 space-y-2">
+                {data.me.isHost && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void run(() => resetChips({ data: { code: codigo } }))}
+                    className="w-full rounded-xl bg-primary py-3 font-display tracking-wide text-primary-foreground disabled:opacity-50"
+                  >
+                    Revancha (reiniciar fichas)
+                  </button>
+                )}
+                {amAtTable && iAmBroke && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void run(() => rebuy({ data: { code: codigo } }))}
+                    className="w-full rounded-xl border border-brass bg-felt-deep/60 py-3 font-display tracking-wide text-primary disabled:opacity-50"
+                  >
+                    Recargar fichas ({rebuyTarget.toLocaleString("es-MX")})
+                  </button>
+                )}
+                <Link
+                  to="/"
+                  className="block w-full rounded-xl border border-border/60 py-3 text-sm text-muted-foreground"
+                >
+                  Volver al inicio
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setFinalDismissed(true)}
+                  className="w-full py-1 text-xs text-muted-foreground underline"
+                >
+                  Seguir viendo la mesa
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Mis fichas */}
         {amAtTable && (
@@ -441,8 +514,13 @@ function TableRoom() {
 
           {hand?.complete && (
             <div className="rounded-xl border border-brass-soft/50 bg-card/80 p-3 text-center">
+              <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+                Mano terminada
+              </p>
               <p className="font-display text-xl text-primary">
-                {hand.winners.map((w) => `${w.name} +${w.amount.toLocaleString("es-MX")}`).join(" · ")}
+                {hand.winners
+                  .map((w) => `${w.name} +${w.amount.toLocaleString("es-MX")}`)
+                  .join(" · ")}
               </p>
               {hand.winners[0]?.handName && (
                 <p className="text-xs text-muted-foreground">con {hand.winners[0].handName}</p>
@@ -461,23 +539,53 @@ function TableRoom() {
             </button>
           )}
 
+          {data.me.isHost && handOver && seatedCount >= 2 && (
+            <div className="space-y-2">
+              <button
+                type="button"
+                disabled={busy || !canDeal}
+                onClick={() => void run(() => deal({ data: { code: codigo } }))}
+                className="w-full rounded-xl bg-primary py-3 font-display text-lg tracking-wide text-primary-foreground disabled:opacity-50"
+              >
+                {hand ? "Repartir siguiente mano" : "Repartir primera mano"}
+              </button>
 
-          {canDeal && (
+              {brokePlayers.length > 0 && (
+                <div className="rounded-xl border border-chip-red/50 bg-card/70 p-3 text-center">
+                  <p className="text-sm text-foreground">
+                    {brokePlayers.map((p) => p.displayName).join(", ")}{" "}
+                    {brokePlayers.length > 1 ? "no tienen" : "no tiene"} fichas suficientes
+                  </p>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void run(() => resetChips({ data: { code: codigo } }))}
+                    className="mt-2 w-full rounded-xl border border-brass bg-felt-deep/60 py-2 font-display tracking-wide text-primary disabled:opacity-50"
+                  >
+                    Recargar fichas a todos ({rebuyTarget.toLocaleString("es-MX")})
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {amAtTable && handOver && iAmBroke && (
             <button
               type="button"
               disabled={busy}
-              onClick={() => void run(() => deal({ data: { code: codigo } }))}
-              className="w-full rounded-xl bg-primary py-3 font-display text-lg tracking-wide text-primary-foreground disabled:opacity-50"
+              onClick={() => void run(() => rebuy({ data: { code: codigo } }))}
+              className="w-full rounded-xl border border-brass bg-felt-deep/60 py-3 font-display tracking-wide text-primary disabled:opacity-50"
             >
-              {hand ? "Repartir siguiente mano" : "Repartir primera mano"}
+              Volver con {rebuyTarget.toLocaleString("es-MX")}
             </button>
           )}
 
-          {!data.me.isHost && (!hand || hand.complete) && amSeated && (
+          {!data.me.isHost && handOver && amSeated && brokePlayers.length === 0 && (
             <p className="text-center text-xs text-muted-foreground">
               El anfitrión reparte la siguiente mano.
             </p>
           )}
+
         </section>
 
         {/* Historial */}

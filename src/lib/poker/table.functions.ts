@@ -155,7 +155,33 @@ export const buyInTable = createServerFn({ method: "POST" })
   });
 
 
+export const rebuyTable = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { code: string }) => ({
+    code: String(input.code ?? "").trim().toUpperCase(),
+  }))
+  .handler(async ({ data, context }) => {
+    const { admin, getTableByCode, rebuyChips } = await import("./table.server");
+    const db = await admin();
+    const table = await getTableByCode(db, data.code);
+    return rebuyChips(db, table, context.userId);
+  });
+
+export const resetTable = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { code: string }) => ({
+    code: String(input.code ?? "").trim().toUpperCase(),
+  }))
+  .handler(async ({ data, context }) => {
+    assertHostClaims(context.claims);
+    const { admin, getTableByCode, resetTableStacks } = await import("./table.server");
+    const db = await admin();
+    const table = await getTableByCode(db, data.code);
+    return resetTableStacks(db, table, context.userId);
+  });
+
 export const listMyTables = createServerFn({ method: "POST" })
+
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     if (!isHostEmail(context.claims.email as string | undefined)) return [];

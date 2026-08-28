@@ -190,10 +190,90 @@ export function evaluateOmaha(hole: Card[], board: Card[]): HandScore {
   return best!;
 }
 
+const RANK_SINGULAR: Record<number, string> = {
+  14: "as",
+  13: "rey",
+  12: "reina",
+  11: "jota",
+  10: "diez",
+  9: "nueve",
+  8: "ocho",
+  7: "siete",
+  6: "seis",
+  5: "cinco",
+  4: "cuatro",
+  3: "tres",
+  2: "dos",
+};
+
+const RANK_PLURAL: Record<number, string> = {
+  14: "ases",
+  13: "reyes",
+  12: "reinas",
+  11: "jotas",
+  10: "dieces",
+  9: "nueves",
+  8: "ochos",
+  7: "sietes",
+  6: "seises",
+  5: "cincos",
+  4: "cuatros",
+  3: "treses",
+  2: "doses",
+};
+
+const one = (rank: number) => RANK_SINGULAR[rank] ?? String(rank);
+const many = (rank: number) => RANK_PLURAL[rank] ?? String(rank);
+
+/**
+ * Nombre detallado de la mano: "color al as", "full de reyes con dieces",
+ * "escalera al diez", etc. (en lugar de sólo "Color").
+ */
+export function handTitle(result: HandScore): string {
+  if (!result.cards.length) return result.name;
+  const ranks = result.cards.map(rankOf).sort((a, b) => b - a);
+  const counts = new Map<number, number>();
+  for (const r of ranks) counts.set(r, (counts.get(r) ?? 0) + 1);
+  const grouped = [...counts.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0]);
+  const high = ranks[0]!;
+
+  const straightHighRank = () => {
+    const unique = [...new Set(ranks)];
+    // A-2-3-4-5 cuenta como escalera al cinco.
+    if (unique.includes(14) && unique.includes(5) && unique.includes(2)) return 5;
+    return high;
+  };
+
+  switch (result.category) {
+    case 8:
+      return straightHighRank() === 14 ? "escalera real" : `escalera de color al ${one(straightHighRank())}`;
+    case 7:
+      return `póker de ${many(grouped[0]![0])}`;
+    case 6:
+      return `full de ${many(grouped[0]![0])} con ${many(grouped[1]![0])}`;
+    case 5:
+      return `color al ${one(high)}`;
+    case 4:
+      return `escalera al ${one(straightHighRank())}`;
+    case 3:
+      return `trío de ${many(grouped[0]![0])}`;
+    case 2: {
+      const pairs = grouped.filter(([, c]) => c === 2).map(([r]) => r);
+      return `doble par de ${many(pairs[0]!)} y ${many(pairs[1]!)}`;
+    }
+    case 1:
+      return `par de ${many(grouped[0]![0])}`;
+    default:
+      return `carta alta ${one(high)}`;
+  }
+}
+
 /** Short Spanish explanation of an Omaha showdown result (2 propias + 3 comunitarias). */
 export function describeOmaha(result: HandScore): string {
   if (!result.holeUsed.length) return "Mano sin evaluar";
   const fmt = (cards: Card[]) => cards.map((c) => `${cardLabel(c)}${SUIT_SYMBOL[suitOf(c)]}`).join(" ");
-  return `${result.name}: usa ${fmt(result.holeUsed)} de su mano + ${fmt(result.boardUsed)} de la mesa`;
+  const title = handTitle(result);
+  return `${title.charAt(0).toUpperCase()}${title.slice(1)}: usa ${fmt(result.holeUsed)} de su mano + ${fmt(result.boardUsed)} de la mesa`;
 }
+
 
