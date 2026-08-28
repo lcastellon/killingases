@@ -109,13 +109,15 @@ function TableRoom() {
         const isMe = p.userId === data.me.userId;
         const cards = isMe ? (data.myCards ?? revealed) : revealed;
         const winner = hand?.winners?.find((w) => w.seat === p.seat);
+        const handOver = Boolean(hand?.complete);
         return {
           seat: p.seat,
           name: p.displayName,
           chips: handPlayer?.chips ?? p.chips,
-          bet: handPlayer?.bet ?? 0,
-          folded: handPlayer?.folded ?? false,
-          allIn: handPlayer?.allIn ?? false,
+          // Al terminar la mano se limpian apuestas y etiquetas de la ronda.
+          bet: handOver ? 0 : (handPlayer?.bet ?? 0),
+          folded: handOver ? false : (handPlayer?.folded ?? false),
+          allIn: handOver ? false : (handPlayer?.allIn ?? false),
           isTurn: hand?.currentSeat === p.seat,
           isButton: hand ? hand.buttonSeat === p.seat : data.table.buttonSeat === p.seat,
           isMe,
@@ -123,6 +125,7 @@ function TableRoom() {
           cardCount: handPlayer ? 4 : 0,
           winAmount: winner?.amount,
           handName: winner?.handName,
+
           online: p.online,
           avatarUrl: p.avatarUrl,
         } satisfies SeatView;
