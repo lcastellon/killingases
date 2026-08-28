@@ -185,6 +185,7 @@ export async function buyIn(
   table: TableRow,
   userId: string,
   amount: number,
+  seat?: number | null,
 ) {
   const wanted = Math.trunc(Number(amount));
   if (!Number.isFinite(wanted) || wanted <= 0) throw new Error("Cantidad inválida");
@@ -199,12 +200,25 @@ export async function buyIn(
   if (total > table.max_buyin)
     throw new Error(`La compra máxima es ${table.max_buyin.toLocaleString("es-MX")}`);
 
-  const { error } = await db.from("table_players").update({ chips: total }).eq("id", me.id);
+  const patch: { chips: number; seat?: number } = { chips: total };
+
+  if (seat !== undefined && seat !== null && me.seat === null) {
+    const wantedSeat = Math.trunc(Number(seat));
+    if (!Number.isInteger(wantedSeat) || wantedSeat < 0 || wantedSeat >= MAX_SEATS)
+      throw new Error("Ese asiento no existe");
+    if (players.some((p) => p.seat === wantedSeat)) throw new Error("Ese asiento ya está ocupado");
+    if (await handInProgress(db, table.id))
+      throw new Error("Espera a que termine la mano para sentarte");
+    patch.seat = wantedSeat;
+  }
+
+  const { error } = await db.from("table_players").update(patch).eq("id", me.id);
   if (error) throw new Error(error.message);
 
   await reconcileSeats(db, table);
   return { chips: total };
 }
+
 
 /** Tables the host has open, for the permanent lobby list. */
 export async function listHostTables(db: AdminClient, hostId: string) {

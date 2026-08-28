@@ -67,6 +67,8 @@ function TableRoom() {
   const [busy, setBusy] = useState(false);
   const [buyin, setBuyin] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [seatTarget, setSeatTarget] = useState<number | null>(null);
+
 
   const query = useQuery({
     queryKey: ["mesa", codigo],
@@ -230,7 +232,68 @@ function TableRoom() {
           pot={hand?.pot ?? 0}
           board={hand?.board ?? []}
           onAvatarClick={() => setSettingsOpen(true)}
+          onEmptySeatClick={
+            amAtTable && !amSeated
+              ? (seat) => {
+                  setSeatTarget(seat);
+                  setBuyin(String(Math.max(data.table.minBuyin, data.me.chips)));
+                }
+              : undefined
+          }
         />
+
+        {/* Sentarse en un asiento libre */}
+        {seatTarget !== null && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur">
+            <div className="w-full max-w-sm rounded-2xl border border-brass-soft/50 bg-card p-4 shadow-table">
+              <h2 className="font-display text-xl tracking-wide text-primary">
+                Sentarte en el asiento {seatTarget + 1}
+              </h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Elige tus fichas entre {data.table.minBuyin.toLocaleString("es-MX")} y{" "}
+                {data.table.maxBuyin.toLocaleString("es-MX")}.
+              </p>
+              <input
+                type="number"
+                min={data.table.minBuyin}
+                max={data.table.maxBuyin}
+                step={data.table.bigBlind}
+                inputMode="numeric"
+                value={buyin}
+                onChange={(e) => setBuyin(e.target.value)}
+                aria-label="Fichas con las que te quieres sentar"
+                className="tabular mt-3 w-full rounded-lg border border-input bg-background px-3 py-2 text-base text-foreground outline-none focus:border-brass"
+              />
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSeatTarget(null)}
+                  className="flex-1 rounded-xl border border-border/60 px-4 py-2 text-sm text-muted-foreground"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    void run(async () => {
+                      const target = Number(buyin) || data.table.minBuyin;
+                      const delta = target - data.me.chips;
+                      if (delta <= 0) throw new Error("Elige una cantidad mayor a tus fichas");
+                      await buy({ data: { code: codigo, amount: delta, seat: seatTarget } });
+                      setSeatTarget(null);
+                      setBuyin("");
+                    })
+                  }
+                  className="flex-1 rounded-xl bg-primary px-4 py-2 font-display tracking-wide text-primary-foreground disabled:opacity-50"
+                >
+                  Sentarme
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
 
 
         {/* Mis fichas */}
