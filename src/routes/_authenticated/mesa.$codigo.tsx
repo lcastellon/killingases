@@ -11,6 +11,8 @@ import {
   getTableSnapshot,
   joinTable,
   leaveTable,
+  rebuyTable,
+  resetTable,
   setPlayerChips,
 } from "@/lib/poker/table.functions";
 import { legalActions, type HandState } from "@/lib/poker/engine";
@@ -64,10 +66,13 @@ function TableRoom() {
   const leave = useServerFn(leaveTable);
   const adjustChips = useServerFn(setPlayerChips);
   const buy = useServerFn(buyInTable);
+  const rebuy = useServerFn(rebuyTable);
+  const resetChips = useServerFn(resetTable);
   const [busy, setBusy] = useState(false);
   const [buyin, setBuyin] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [seatTarget, setSeatTarget] = useState<number | null>(null);
+  const [finalDismissed, setFinalDismissed] = useState(false);
 
 
   const query = useQuery({
@@ -312,6 +317,57 @@ function TableRoom() {
         )}
 
 
+
+        {/* Partida terminada */}
+        {gameOver && !finalDismissed && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur">
+            <div className="w-full max-w-sm rounded-2xl border border-brass bg-card p-5 text-center shadow-table">
+              <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+                Partida terminada
+              </p>
+              <h2 className="mt-1 font-display text-2xl tracking-wide text-primary">
+                {overallWinner
+                  ? `${overallWinner.displayName} ganó todas las fichas`
+                  : "Ya no hay fichas en juego"}
+              </h2>
+              <div className="mt-4 space-y-2">
+                {data.me.isHost && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void run(() => resetChips({ data: { code: codigo } }))}
+                    className="w-full rounded-xl bg-primary py-3 font-display tracking-wide text-primary-foreground disabled:opacity-50"
+                  >
+                    Revancha (reiniciar fichas)
+                  </button>
+                )}
+                {amAtTable && iAmBroke && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void run(() => rebuy({ data: { code: codigo } }))}
+                    className="w-full rounded-xl border border-brass bg-felt-deep/60 py-3 font-display tracking-wide text-primary disabled:opacity-50"
+                  >
+                    Recargar fichas ({rebuyTarget.toLocaleString("es-MX")})
+                  </button>
+                )}
+                <Link
+                  to="/"
+                  className="block w-full rounded-xl border border-border/60 py-3 text-sm text-muted-foreground"
+                >
+                  Volver al inicio
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setFinalDismissed(true)}
+                  className="w-full py-1 text-xs text-muted-foreground underline"
+                >
+                  Seguir viendo la mesa
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Mis fichas */}
         {amAtTable && (
