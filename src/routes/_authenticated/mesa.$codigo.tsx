@@ -439,25 +439,8 @@ function TableRoom() {
           </section>
         )}
 
-        {/* Banco de fichas (solo anfitrión) */}
-        {data.me.isHost && (
-          <div className="mt-3">
-            <ChipBank
-              players={data.players.map((p) => ({
-                userId: p.userId,
-                displayName: p.displayName,
-                chips: p.chips,
-                seat: p.seat,
-              }))}
-              minBuyin={data.table.minBuyin}
-              maxBuyin={data.table.maxBuyin}
-              disabled={busy || Boolean(hand && !hand.complete)}
-              onAdjust={(userId, delta) =>
-                void run(() => adjustChips({ data: { code: codigo, userId, delta } }))
-              }
-            />
-          </div>
-        )}
+
+
 
         {/* Mis cartas */}
         {data.myCards && (
