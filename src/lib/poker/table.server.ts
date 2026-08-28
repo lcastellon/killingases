@@ -176,9 +176,25 @@ export async function reconcileSeats(db: AdminClient, table: TableRow) {
   }
 }
 
+/** Saldo del banco global del club para un jugador. */
+export async function getBank(db: AdminClient, userId: string): Promise<number> {
+  const { data, error } = await db
+    .from("profiles")
+    .select("bank_chips")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as { bank_chips: number } | null)?.bank_chips ?? 0;
+}
+
+async function setBank(db: AdminClient, userId: string, value: number) {
+  const { error } = await db.from("profiles").update({ bank_chips: value }).eq("id", userId);
+  if (error) throw new Error(error.message);
+}
+
 /**
- * A player decides their own buy-in, within the table's min/max. Chips are
- * credited to them and `reconcileSeats` seats them as soon as no hand is live.
+ * A player decides their own buy-in, within the table's min/max. The chips come
+ * out of their global club bank and `reconcileSeats` seats them between hands.
  */
 export async function buyIn(
   db: AdminClient,
@@ -193,6 +209,12 @@ export async function buyIn(
   const players = await getPlayers(db, table.id);
   const me = players.find((p) => p.user_id === userId);
   if (!me) throw new Error("Primero entra a la mesa");
+
+  const bank = await getBank(db, userId);
+  if (wanted > bank)
+    throw new Error(
+      `Tu banco tiene ${bank.toLocaleString("es-MX")} fichas; pide fichas al anfitrión`,
+    );
 
   const total = me.chips + wanted;
   if (total < table.min_buyin)
@@ -212,12 +234,59 @@ export async function buyIn(
     patch.seat = wantedSeat;
   }
 
+  await setBank(db, userId, bank - wanted);
   const { error } = await db.from("table_players").update(patch).eq("id", me.id);
-  if (error) throw new Error(error.message);
+  if (error) {
+    // Revertimos el cargo al banco si no pudimos acreditar las fichas en la mesa.
+    await setBank(db, userId, bank);
+    throw new Error(error.message);
+  }
 
   await reconcileSeats(db, table);
-  return { chips: total };
+  return { chips: total, bankChips: bank - wanted };
 }
+
+/** Devuelve al banco las fichas que un jugador tiene en la mesa y libera su asiento. */
+export async function cashOut(db: AdminClient, table: TableRow, userId: string) {
+  if (await handInProgress(db, table.id))
+    throw new Error("Espera a que termine la mano en curso para retirar tus fichas");
+
+  const players = await getPlayers(db, table.id);
+  const me = players.find((p) => p.user_id === userId);
+  if (!me) return { chips: 0, bankChips: await getBank(db, userId) };
+
+  const bank = await getBank(db, userId);
+  if (me.chips > 0) {
+    const { error } = await db
+      .from("table_players")
+      .update({ chips: 0, seat: null })
+      .eq("id", me.id);
+    if (error) throw new Error(error.message);
+    await setBank(db, userId, bank + me.chips);
+    return { chips: 0, bankChips: bank + me.chips };
+  }
+  if (me.seat !== null) {
+    const { error } = await db.from("table_players").update({ seat: null }).eq("id", me.id);
+    if (error) throw new Error(error.message);
+  }
+  return { chips: 0, bankChips: bank };
+}
+
+/** Devuelve al banco las fichas de todos los jugadores de una mesa (al cerrarla). */
+export async function cashOutTable(db: AdminClient, table: TableRow) {
+  const players = await getPlayers(db, table.id);
+  for (const p of players) {
+    if (p.chips <= 0) continue;
+    const bank = await getBank(db, p.user_id);
+    const { error } = await db
+      .from("table_players")
+      .update({ chips: 0, seat: null })
+      .eq("id", p.id);
+    if (error) throw new Error(error.message);
+    await setBank(db, p.user_id, bank + p.chips);
+  }
+}
+
 
 
 /** Tables the host has open, for the permanent lobby list. */
@@ -258,8 +327,8 @@ export async function listHostTables(db: AdminClient, hostId: string) {
 }
 
 /**
- * Recarga de fichas de práctica: el jugador vuelve con el stack inicial de la
- * mesa (acotado al máximo permitido) cuando ya no le quedan fichas.
+ * Recarga en mesa: el jugador completa su stack hasta el objetivo de la mesa
+ * tomando las fichas de su banco global (nunca se crean fichas).
  */
 export async function rebuyChips(db: AdminClient, table: TableRow, userId: string) {
   if (await handInProgress(db, table.id))
@@ -270,62 +339,58 @@ export async function rebuyChips(db: AdminClient, table: TableRow, userId: strin
   if (!me) throw new Error("Primero entra a la mesa");
 
   const target = Math.min(table.max_buyin, Math.max(table.min_buyin, table.starting_chips));
-  if (me.chips >= target)
-    throw new Error("Todavía tienes fichas suficientes para jugar");
+  if (me.chips >= target) throw new Error("Todavía tienes fichas suficientes para jugar");
 
-  const { error } = await db.from("table_players").update({ chips: target }).eq("id", me.id);
-  if (error) throw new Error(error.message);
+  const bank = await getBank(db, userId);
+  const needed = target - me.chips;
+  const take = Math.min(bank, needed);
+  if (take <= 0)
+    throw new Error("Tu banco está en 0; pide fichas al anfitrión");
+  const next = me.chips + take;
+  if (next < table.min_buyin)
+    throw new Error(
+      `Necesitas al menos ${table.min_buyin.toLocaleString("es-MX")} y tu banco tiene ${bank.toLocaleString("es-MX")}`,
+    );
+
+  await setBank(db, userId, bank - take);
+  const { error } = await db.from("table_players").update({ chips: next }).eq("id", me.id);
+  if (error) {
+    await setBank(db, userId, bank);
+    throw new Error(error.message);
+  }
 
   await reconcileSeats(db, table);
-  return { chips: target };
+  return { chips: next, bankChips: bank - take };
 }
 
-/** El anfitrión devuelve a todos el stack inicial (fichas de práctica). */
+/** El anfitrión devuelve al banco las fichas de todos los de la mesa. */
 export async function resetTableStacks(db: AdminClient, table: TableRow, hostId: string) {
   if (table.host_id !== hostId) throw new Error("Solo el anfitrión puede reiniciar la mesa");
   if (await handInProgress(db, table.id))
     throw new Error("Espera a que termine la mano en curso para reiniciar la mesa");
 
-  const target = Math.min(table.max_buyin, Math.max(table.min_buyin, table.starting_chips));
-  const { error } = await db
-    .from("table_players")
-    .update({ chips: target })
-    .eq("table_id", table.id);
-  if (error) throw new Error(error.message);
-
-  await reconcileSeats(db, table);
-  return { chips: target };
+  await cashOutTable(db, table);
+  return { ok: true };
 }
 
-
-/** Host-only chip bank: add or remove chips for a player between hands. */
-export async function adjustPlayerChips(
+/** Banco global del club: el anfitrión agrega o retira fichas a un jugador. */
+export async function adjustPlayerBank(
   db: AdminClient,
-  table: TableRow,
   hostId: string,
   targetUserId: string,
   delta: number,
 ) {
-  if (table.host_id !== hostId) throw new Error("Solo el anfitrión puede repartir fichas");
+  void hostId; // el llamador ya validó que es el anfitrión del club
   if (!Number.isFinite(delta) || Math.trunc(delta) === 0) throw new Error("Cantidad inválida");
-  if (await handInProgress(db, table.id))
-    throw new Error("Espera a que termine la mano en curso para cambiar fichas");
 
-  const players = await getPlayers(db, table.id);
-  const target = players.find((p) => p.user_id === targetUserId);
-  if (!target) throw new Error("Ese jugador no está en la mesa");
+  const bank = await getBank(db, targetUserId);
+  const next = bank + Math.trunc(delta);
+  if (next < 0) throw new Error("El jugador no tiene tantas fichas en su banco");
 
-  const next = target.chips + Math.trunc(delta);
-  if (next < 0) throw new Error("El jugador no tiene tantas fichas");
-  if (next > table.max_buyin)
-    throw new Error(`La compra máxima de esta mesa es ${table.max_buyin.toLocaleString("es-MX")}`);
-
-  const { error } = await db.from("table_players").update({ chips: next }).eq("id", target.id);
-  if (error) throw new Error(error.message);
-
-  await reconcileSeats(db, table);
-  return { chips: next };
+  await setBank(db, targetUserId, next);
+  return { bankChips: next };
 }
+
 
 export async function dealNewHand(db: AdminClient, table: TableRow, userId: string) {
   if (table.host_id !== userId) throw new Error("Solo el anfitrión puede repartir");
@@ -481,7 +546,7 @@ export async function hostPanelData(db: AdminClient, hostId: string) {
 
   const { data: profileRows, error: profilesError } = await db
     .from("profiles")
-    .select("id, display_name, created_at")
+    .select("id, display_name, created_at, bank_chips")
     .order("created_at", { ascending: true });
   if (profilesError) throw new Error(profilesError.message);
 
@@ -513,6 +578,7 @@ export async function hostPanelData(db: AdminClient, hostId: string) {
       userId: p.id,
       displayName: p.display_name,
       joinedAt: p.created_at,
+      bankChips: (p as { bank_chips?: number }).bank_chips ?? 0,
       memberships: seats
         .filter((s) => s.user_id === p.id)
         .map((s) => ({
@@ -526,6 +592,7 @@ export async function hostPanelData(db: AdminClient, hostId: string) {
     })),
   };
 }
+
 
 export type ProfilePrefs = {
   displayName: string;

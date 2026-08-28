@@ -38,6 +38,8 @@ export type TableSnapshot = {
     seat: number | null;
     isHost: boolean;
     chips: number;
+    bankChips: number;
+
     isSpectator: boolean;
     displayName: string;
     avatarUrl: string | null;
@@ -195,10 +197,12 @@ export const closeTable = createServerFn({ method: "POST" })
   .inputValidator((input: { code: string }) => ({ code: String(input.code ?? "").trim().toUpperCase() }))
   .handler(async ({ data, context }) => {
     assertHostClaims(context.claims);
-    const { admin, getTableByCode } = await import("./table.server");
+    const { admin, getTableByCode, cashOutTable } = await import("./table.server");
     const db = await admin();
     const table = await getTableByCode(db, data.code);
     if (table.host_id !== context.userId) throw new Error("Esa mesa no es tuya");
+    // Las fichas que quedaron en la mesa vuelven al banco de cada jugador.
+    await cashOutTable(db, table);
     const { error } = await db
       .from("poker_tables")
       .update({ status: "closed", updated_at: new Date().toISOString() })
@@ -207,29 +211,39 @@ export const closeTable = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** El anfitrión ajusta el banco global del club de un jugador. */
 export const setPlayerChips = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { code: string; userId: string; delta: number }) => ({
-    code: String(input.code ?? "").trim().toUpperCase(),
+  .inputValidator((input: { userId: string; delta: number }) => ({
     userId: String(input.userId ?? ""),
     delta: Math.trunc(Number(input.delta ?? 0)),
   }))
   .handler(async ({ data, context }) => {
     assertHostClaims(context.claims);
-    const { admin, getTableByCode, adjustPlayerChips } = await import("./table.server");
+    const { admin, adjustPlayerBank } = await import("./table.server");
     const db = await admin();
-    const table = await getTableByCode(db, data.code);
-    return adjustPlayerChips(db, table, context.userId, data.userId, data.delta);
+    return adjustPlayerBank(db, context.userId, data.userId, data.delta);
   });
 
+/** El jugador se levanta: sus fichas de la mesa vuelven al banco del club. */
+export const cashOutTableFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { code: string }) => ({ code: String(input.code ?? "").trim().toUpperCase() }))
+  .handler(async ({ data, context }) => {
+    const { admin, getTableByCode, cashOut } = await import("./table.server");
+    const db = await admin();
+    const table = await getTableByCode(db, data.code);
+    return cashOut(db, table, context.userId);
+  });
 
 export const leaveTable = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { code: string }) => ({ code: String(input.code ?? "").trim().toUpperCase() }))
   .handler(async ({ data, context }) => {
-    const { admin, getTableByCode } = await import("./table.server");
+    const { admin, getTableByCode, cashOut } = await import("./table.server");
     const db = await admin();
     const table = await getTableByCode(db, data.code);
+    await cashOut(db, table, context.userId);
     const { error } = await db
       .from("table_players")
       .delete()
@@ -238,6 +252,7 @@ export const leaveTable = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
 
 export const getTableSnapshot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -252,7 +267,9 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
       reconcileSeats,
       avatarUrlsFor,
       profilePrefs,
+      getBank,
     } = await import("./table.server");
+
     const db = await admin();
     const table = await getTableByCode(db, data.code);
     await enforceTurnTimer(db, table);
@@ -283,6 +300,8 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
     const mine = players.find((p) => p.user_id === context.userId);
     const avatars = await avatarUrlsFor(db, players.map((p) => p.user_id));
     const prefs = await profilePrefs(db, context.userId);
+    const myBank = await getBank(db, context.userId);
+
 
     return {
       table: {
@@ -320,6 +339,8 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
         isHost:
           table.host_id === context.userId && isHostEmail(context.claims.email as string | undefined),
         chips: mine?.chips ?? 0,
+        bankChips: myBank,
+
         isSpectator: !mine || mine.seat === null,
         displayName: prefs.displayName,
         avatarUrl: avatars[context.userId] ?? null,

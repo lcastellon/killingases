@@ -270,13 +270,15 @@ function TableRoom() {
               </h2>
               <p className="mt-1 text-xs text-muted-foreground">
                 Elige tus fichas entre {data.table.minBuyin.toLocaleString("es-MX")} y{" "}
-                {data.table.maxBuyin.toLocaleString("es-MX")}.
+                {Math.min(data.table.maxBuyin, data.me.bankChips).toLocaleString("es-MX")}. Banco
+                del club: {data.me.bankChips.toLocaleString("es-MX")}.
               </p>
               <input
                 type="number"
                 min={data.table.minBuyin}
-                max={data.table.maxBuyin}
+                max={Math.min(data.table.maxBuyin, data.me.bankChips)}
                 step={data.table.bigBlind}
+
                 inputMode="numeric"
                 value={buyin}
                 onChange={(e) => setBuyin(e.target.value)}
@@ -369,58 +371,87 @@ function TableRoom() {
         {/* Mis fichas */}
         {amAtTable && (
           <section className="mt-4 rounded-2xl border border-brass-soft/40 bg-card/80 p-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
-                  Tus fichas disponibles
+                  Fichas en la mesa
                 </p>
                 <p className="tabular font-display text-3xl text-primary">
                   {data.me.chips.toLocaleString("es-MX")}
                 </p>
               </div>
-              <p className="max-w-[55%] text-right text-xs text-muted-foreground">
-                Compra {data.table.minBuyin.toLocaleString("es-MX")}–
-                {data.table.maxBuyin.toLocaleString("es-MX")}
-              </p>
+              <div className="text-right">
+                <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+                  Banco del club
+                </p>
+                <p className="tabular font-display text-2xl text-brass">
+                  {data.me.bankChips.toLocaleString("es-MX")}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Compra {data.table.minBuyin.toLocaleString("es-MX")}–
+                  {data.table.maxBuyin.toLocaleString("es-MX")}
+                </p>
+              </div>
             </div>
 
             {!amSeated && (
               <div className="mt-3 border-t border-border/50 pt-3">
-                <p className="text-xs text-muted-foreground">
-                  Elige con cuántas fichas te quieres sentar (dentro del rango de la mesa).
-                </p>
-                <div className="mt-2 flex gap-2">
-                  <input
-                    type="number"
-                    min={data.table.minBuyin}
-                    max={data.table.maxBuyin}
-                    step={data.table.bigBlind}
-                    inputMode="numeric"
-                    value={buyin}
-                    onChange={(e) => setBuyin(e.target.value)}
-                    placeholder={String(data.table.minBuyin)}
-                    className="tabular w-full rounded-lg border border-input bg-background px-3 py-2 text-base text-foreground outline-none focus:border-brass"
-                    aria-label="Fichas con las que te quieres sentar"
-                  />
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() =>
-                      void run(async () => {
-                        const amount = Number(buyin) || data.table.minBuyin;
-                        await buy({ data: { code: codigo, amount: amount - data.me.chips } });
-                        setBuyin("");
-                      })
-                    }
-                    className="shrink-0 rounded-xl bg-primary px-5 font-display text-lg tracking-wide text-primary-foreground disabled:opacity-50"
-                  >
-                    Sentarme
-                  </button>
-                </div>
+                {data.me.bankChips <= 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Tu banco del club está en 0. Pide fichas al anfitrión para poder sentarte.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-xs text-muted-foreground">
+                      Elige con cuántas fichas te quieres sentar (dentro del rango de la mesa y de
+                      tu banco).
+                    </p>
+                    <div className="mt-2 flex gap-2">
+                      <input
+                        type="number"
+                        min={data.table.minBuyin}
+                        max={Math.min(data.table.maxBuyin, data.me.bankChips)}
+                        step={data.table.bigBlind}
+                        inputMode="numeric"
+                        value={buyin}
+                        onChange={(e) => setBuyin(e.target.value)}
+                        placeholder={String(data.table.minBuyin)}
+                        className="tabular w-full rounded-lg border border-input bg-background px-3 py-2 text-base text-foreground outline-none focus:border-brass"
+                        aria-label="Fichas con las que te quieres sentar"
+                      />
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          void run(async () => {
+                            const amount = Number(buyin) || data.table.minBuyin;
+                            await buy({ data: { code: codigo, amount: amount - data.me.chips } });
+                            setBuyin("");
+                          })
+                        }
+                        className="shrink-0 rounded-xl bg-primary px-5 font-display text-lg tracking-wide text-primary-foreground disabled:opacity-50"
+                      >
+                        Sentarme
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
+            )}
+
+            {amSeated && handOver && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void run(() => leave({ data: { code: codigo } }))}
+                className="mt-3 w-full rounded-xl border border-border/60 py-2 text-sm text-muted-foreground disabled:opacity-50"
+              >
+                Levantarme y regresar fichas al banco
+              </button>
             )}
           </section>
         )}
+
 
         {/* Espectadores */}
         {spectators.length > 0 && (

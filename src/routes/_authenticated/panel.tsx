@@ -108,8 +108,8 @@ function HostPanel() {
 
         <h1 className="mt-6 text-3xl text-foreground">Jugadores del club</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Todos los jugadores registrados, con las fichas que tienen en cada mesa abierta. Los
-          cambios de fichas se aplican entre manos.
+          Cada jugador tiene un banco global del club. Aquí le agregas o retiras fichas de ese
+          banco; después él decide con cuánto entra a la mesa que quiera.
         </p>
 
         <input
@@ -121,17 +121,10 @@ function HostPanel() {
 
         {query.isLoading && <p className="mt-6 text-sm text-muted-foreground">Cargando…</p>}
 
-        {tables.length === 0 && !query.isLoading && (
-          <p className="mt-6 rounded-xl border border-border/60 bg-card/70 p-3 text-sm text-muted-foreground">
-            No tienes mesas abiertas. Crea una desde el inicio para poder repartir fichas.
-          </p>
-        )}
-
         <ul className="mt-6 space-y-3">
           {players.map((p) => {
             const target = targetTable[p.userId] ?? tables[0]?.code ?? "";
-            const targetInfo = tables.find((t) => t.code === target);
-            const key = `${p.userId}:${target}`;
+            const key = p.userId;
             const membership = p.memberships.find((m) => m.code === target);
             return (
               <li
@@ -143,9 +136,10 @@ function HostPanel() {
                     {p.displayName}
                   </p>
                   <span className="tabular text-xs text-muted-foreground">
-                    {p.memberships.length === 0
-                      ? "sin mesa"
-                      : `${p.memberships.length} mesa(s)`}
+                    Banco{" "}
+                    <span className="font-display text-base text-primary">
+                      {p.bankChips.toLocaleString("es-MX")}
+                    </span>
                   </span>
                 </div>
 
@@ -154,15 +148,60 @@ function HostPanel() {
                     {p.memberships.map((m) => (
                       <li key={m.code} className="tabular text-xs text-muted-foreground">
                         <span className="text-primary">{m.code}</span> ·{" "}
-                        {m.chips.toLocaleString("es-MX")} fichas ·{" "}
+                        {m.chips.toLocaleString("es-MX")} fichas en juego ·{" "}
                         {m.seat === null ? "espectador" : `asiento ${m.seat + 1}`}
                       </li>
                     ))}
                   </ul>
                 )}
 
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    inputMode="numeric"
+                    placeholder="1000"
+                    value={amounts[key] ?? ""}
+                    onChange={(e) => setAmounts((prev) => ({ ...prev, [key]: e.target.value }))}
+                    aria-label={`Fichas para el banco de ${p.displayName}`}
+                    className="tabular w-24 rounded-lg border border-input bg-background px-2 py-2 text-sm text-foreground outline-none focus:border-brass"
+                  />
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      run(
+                        () =>
+                          adjust({
+                            data: { userId: p.userId, delta: amountFor(key, 1000) },
+                          }),
+                        "Fichas agregadas al banco",
+                      )
+                    }
+                    className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                  >
+                    Dar al banco
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      run(
+                        () =>
+                          adjust({
+                            data: { userId: p.userId, delta: -amountFor(key, 1000) },
+                          }),
+                        "Fichas retiradas del banco",
+                      )
+                    }
+                    className="rounded-lg border border-border px-3 py-2 text-sm text-foreground disabled:opacity-50"
+                  >
+                    Quitar
+                  </button>
+                </div>
+
                 {tables.length > 0 && (
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
                     <select
                       value={target}
                       onChange={(e) =>
@@ -177,73 +216,19 @@ function HostPanel() {
                       ))}
                     </select>
 
-                    {membership ? (
-                      <>
-                        <input
-                          type="number"
-                          min={1}
-                          inputMode="numeric"
-                          placeholder={String(targetInfo?.minBuyin ?? 100)}
-                          value={amounts[key] ?? ""}
-                          onChange={(e) =>
-                            setAmounts((prev) => ({ ...prev, [key]: e.target.value }))
-                          }
-                          className="tabular w-24 rounded-lg border border-input bg-background px-2 py-2 text-sm text-foreground outline-none focus:border-brass"
-                        />
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() =>
-                            run(
-                              () =>
-                                adjust({
-                                  data: {
-                                    code: target,
-                                    userId: p.userId,
-                                    delta: amountFor(key, targetInfo?.minBuyin ?? 100),
-                                  },
-                                }),
-                              "Fichas entregadas",
-                            )
-                          }
-                          className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-                        >
-                          Dar
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() =>
-                            run(
-                              () =>
-                                adjust({
-                                  data: {
-                                    code: target,
-                                    userId: p.userId,
-                                    delta: -amountFor(key, targetInfo?.minBuyin ?? 100),
-                                  },
-                                }),
-                              "Fichas retiradas",
-                            )
-                          }
-                          className="rounded-lg border border-border px-3 py-2 text-sm text-foreground disabled:opacity-50"
-                        >
-                          Quitar
-                        </button>
-                      </>
-                    ) : (
+                    {!membership && (
                       <button
                         type="button"
                         disabled={busy}
                         onClick={() =>
                           run(
                             () => addToTable({ data: { code: target, userId: p.userId } }),
-                            "Jugador agregado a la mesa",
+                            "Jugador invitado a la mesa",
                           )
                         }
-                        className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                        className="rounded-lg border border-brass px-3 py-2 text-sm text-primary disabled:opacity-50"
                       >
-                        Agregar a la mesa
+                        Invitar a la mesa
                       </button>
                     )}
 
@@ -260,6 +245,7 @@ function HostPanel() {
             );
           })}
         </ul>
+
       </div>
     </main>
   );
