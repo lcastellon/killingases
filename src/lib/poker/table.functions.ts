@@ -300,6 +300,8 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
     const mine = players.find((p) => p.user_id === context.userId);
     const avatars = await avatarUrlsFor(db, players.map((p) => p.user_id));
     const prefs = await profilePrefs(db, context.userId);
+    const myBank = await getBank(db, context.userId);
+
 
     return {
       table: {
