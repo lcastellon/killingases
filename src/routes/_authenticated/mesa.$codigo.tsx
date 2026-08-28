@@ -458,8 +458,13 @@ function TableRoom() {
 
           {hand?.complete && (
             <div className="rounded-xl border border-brass-soft/50 bg-card/80 p-3 text-center">
+              <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+                Mano terminada
+              </p>
               <p className="font-display text-xl text-primary">
-                {hand.winners.map((w) => `${w.name} +${w.amount.toLocaleString("es-MX")}`).join(" · ")}
+                {hand.winners
+                  .map((w) => `${w.name} +${w.amount.toLocaleString("es-MX")}`)
+                  .join(" · ")}
               </p>
               {hand.winners[0]?.handName && (
                 <p className="text-xs text-muted-foreground">con {hand.winners[0].handName}</p>
@@ -478,23 +483,53 @@ function TableRoom() {
             </button>
           )}
 
+          {data.me.isHost && handOver && seatedCount >= 2 && (
+            <div className="space-y-2">
+              <button
+                type="button"
+                disabled={busy || !canDeal}
+                onClick={() => void run(() => deal({ data: { code: codigo } }))}
+                className="w-full rounded-xl bg-primary py-3 font-display text-lg tracking-wide text-primary-foreground disabled:opacity-50"
+              >
+                {hand ? "Repartir siguiente mano" : "Repartir primera mano"}
+              </button>
 
-          {canDeal && (
+              {brokePlayers.length > 0 && (
+                <div className="rounded-xl border border-chip-red/50 bg-card/70 p-3 text-center">
+                  <p className="text-sm text-foreground">
+                    {brokePlayers.map((p) => p.displayName).join(", ")}{" "}
+                    {brokePlayers.length > 1 ? "no tienen" : "no tiene"} fichas suficientes
+                  </p>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void run(() => resetChips({ data: { code: codigo } }))}
+                    className="mt-2 w-full rounded-xl border border-brass bg-felt-deep/60 py-2 font-display tracking-wide text-primary disabled:opacity-50"
+                  >
+                    Recargar fichas a todos ({rebuyTarget.toLocaleString("es-MX")})
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {amAtTable && handOver && iAmBroke && (
             <button
               type="button"
               disabled={busy}
-              onClick={() => void run(() => deal({ data: { code: codigo } }))}
-              className="w-full rounded-xl bg-primary py-3 font-display text-lg tracking-wide text-primary-foreground disabled:opacity-50"
+              onClick={() => void run(() => rebuy({ data: { code: codigo } }))}
+              className="w-full rounded-xl border border-brass bg-felt-deep/60 py-3 font-display tracking-wide text-primary disabled:opacity-50"
             >
-              {hand ? "Repartir siguiente mano" : "Repartir primera mano"}
+              Volver con {rebuyTarget.toLocaleString("es-MX")}
             </button>
           )}
 
-          {!data.me.isHost && (!hand || hand.complete) && amSeated && (
+          {!data.me.isHost && handOver && amSeated && brokePlayers.length === 0 && (
             <p className="text-center text-xs text-muted-foreground">
               El anfitrión reparte la siguiente mano.
             </p>
           )}
+
         </section>
 
         {/* Historial */}
