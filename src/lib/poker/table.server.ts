@@ -546,7 +546,7 @@ export async function hostPanelData(db: AdminClient, hostId: string) {
 
   const { data: profileRows, error: profilesError } = await db
     .from("profiles")
-    .select("id, display_name, created_at")
+    .select("id, display_name, created_at, bank_chips")
     .order("created_at", { ascending: true });
   if (profilesError) throw new Error(profilesError.message);
 
@@ -578,6 +578,7 @@ export async function hostPanelData(db: AdminClient, hostId: string) {
       userId: p.id,
       displayName: p.display_name,
       joinedAt: p.created_at,
+      bankChips: (p as { bank_chips?: number }).bank_chips ?? 0,
       memberships: seats
         .filter((s) => s.user_id === p.id)
         .map((s) => ({
@@ -589,6 +590,8 @@ export async function hostPanelData(db: AdminClient, hostId: string) {
         }))
         .filter((m) => m.code !== ""),
     })),
+  };
+
   };
 }
 
