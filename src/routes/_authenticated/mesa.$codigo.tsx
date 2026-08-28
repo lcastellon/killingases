@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
@@ -13,6 +13,7 @@ import {
   leaveTable,
   rebuyTable,
   resetTable,
+  type TableSnapshot,
 } from "@/lib/poker/table.functions";
 import { legalActions, type HandState } from "@/lib/poker/engine";
 import { evaluateOmaha } from "@/lib/poker/cards";
@@ -57,6 +58,7 @@ const STREET_LABEL: Record<string, string> = {
 function TableRoom() {
   const { codigo } = Route.useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const snapshot = useServerFn(getTableSnapshot);
   const deal = useServerFn(dealHand);
   const sendAction = useServerFn(act);
@@ -262,7 +264,7 @@ function TableRoom() {
                     String(
                       Math.min(
                         Math.min(data.table.maxBuyin, data.me.bankChips),
-                        Math.max(data.table.minBuyin, data.me.chips),
+                         Math.max(data.table.minBuyin, data.table.startingChips),
                       ),
                     ),
                   );
@@ -320,10 +322,29 @@ function TableRoom() {
                       );
                       const delta = target - data.me.chips;
                       if (delta <= 0) throw new Error("Elige una cantidad mayor a tus fichas");
-                      await buy({ data: { code: codigo, amount: delta, seat: seatTarget } });
+                      const result = await buy({
+                        data: { code: codigo, amount: delta, seat: seatTarget },
+                      });
+                      queryClient.setQueryData<TableSnapshot>(["mesa", codigo], (current) => {
+                        if (!current) return current;
+                        return {
+                          ...current,
+                          players: current.players.map((player) =>
+                            player.userId === current.me.userId
+                              ? { ...player, seat: seatTarget, chips: result.chips }
+                              : player,
+                          ),
+                          me: {
+                            ...current.me,
+                            seat: seatTarget,
+                            chips: result.chips,
+                            bankChips: result.bankChips,
+                            isSpectator: false,
+                          },
+                        };
+                      });
                       setSeatTarget(null);
                       setBuyin("");
-                      refetch();
                     })
 
                   }
@@ -429,40 +450,9 @@ function TableRoom() {
                     Tu banco del club está en 0. Pide fichas al anfitrión para poder sentarte.
                   </p>
                 ) : (
-                  <>
-                    <p className="text-xs text-muted-foreground">
-                      Elige con cuántas fichas te quieres sentar (dentro del rango de la mesa y de
-                      tu banco).
-                    </p>
-                    <div className="mt-2 flex gap-2">
-                      <input
-                        type="number"
-                        min={data.table.minBuyin}
-                        max={Math.min(data.table.maxBuyin, data.me.bankChips)}
-                        step={data.table.bigBlind}
-                        inputMode="numeric"
-                        value={buyin}
-                        onChange={(e) => setBuyin(e.target.value)}
-                        placeholder={String(data.table.minBuyin)}
-                        className="tabular w-full rounded-lg border border-input bg-background px-3 py-2 text-base text-foreground outline-none focus:border-brass"
-                        aria-label="Fichas con las que te quieres sentar"
-                      />
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() =>
-                          void run(async () => {
-                            const amount = Number(buyin) || data.table.minBuyin;
-                            await buy({ data: { code: codigo, amount: amount - data.me.chips } });
-                            setBuyin("");
-                          })
-                        }
-                        className="shrink-0 rounded-xl bg-primary px-5 font-display text-lg tracking-wide text-primary-foreground disabled:opacity-50"
-                      >
-                        Sentarme
-                      </button>
-                    </div>
-                  </>
+                  <p className="text-xs text-muted-foreground">
+                    Toca cualquier asiento libre para elegir con cuántas fichas quieres entrar.
+                  </p>
                 )}
               </div>
             )}
@@ -608,7 +598,7 @@ function TableRoom() {
             </div>
           )}
 
-          {amAtTable && handOver && iAmBroke && (
+          {amSeated && handOver && iAmBroke && (
             <button
               type="button"
               disabled={busy}
