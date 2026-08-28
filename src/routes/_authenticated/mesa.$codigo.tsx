@@ -16,7 +16,9 @@ import {
 import { legalActions, type HandState } from "@/lib/poker/engine";
 import { evaluateOmaha } from "@/lib/poker/cards";
 import { PlayingCard } from "@/components/poker/PlayingCard";
-import { Seat, type SeatView } from "@/components/poker/Seat";
+import { type SeatView } from "@/components/poker/Seat";
+import { PokerTable } from "@/components/poker/PokerTable";
+
 import { ActionBar } from "@/components/poker/ActionBar";
 import { useTableRealtime } from "@/hooks/useTableRealtime";
 import { TurnTimer } from "@/components/poker/TurnTimer";
@@ -198,35 +200,8 @@ function TableRoom() {
         </div>
 
         {/* Mesa */}
-        <section className="mt-4 rounded-3xl border border-brass-soft/30 bg-felt-deep/60 p-4 shadow-table">
-          <div className="flex flex-wrap items-start justify-center gap-2">
-            {seats.map((view) => (
-              <Seat key={view.seat} view={view} />
-            ))}
-          </div>
+        <PokerTable seats={seats} pot={hand?.pot ?? 0} board={hand?.board ?? []} />
 
-          <div className="mt-5 flex flex-col items-center gap-3 rounded-2xl border border-felt-line/40 bg-felt/50 py-5">
-            <span className="tabular font-display text-3xl text-primary">
-              {(hand?.pot ?? 0).toLocaleString("es-MX")}
-            </span>
-            <span className="-mt-2 text-[0.65rem] uppercase tracking-widest text-muted-foreground">
-              Bote
-            </span>
-            <div className="flex gap-2">
-              {Array.from({ length: 5 }).map((_, i) => {
-                const card = hand?.board[i];
-                return card ? (
-                  <PlayingCard key={i} card={card} size="md" />
-                ) : (
-                  <div
-                    key={i}
-                    className="h-16 w-11 rounded-md border border-dashed border-felt-line/50"
-                  />
-                );
-              })}
-            </div>
-          </div>
-        </section>
 
         {/* Mis fichas */}
         {amAtTable && (
