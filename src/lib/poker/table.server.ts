@@ -591,9 +591,8 @@ export async function hostPanelData(db: AdminClient, hostId: string) {
         .filter((m) => m.code !== ""),
     })),
   };
-
-  };
 }
+
 
 export type ProfilePrefs = {
   displayName: string;
