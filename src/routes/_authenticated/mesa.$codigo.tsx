@@ -324,13 +324,28 @@ function TableRoom() {
                       });
                       queryClient.setQueryData<TableSnapshot>(["mesa", codigo], (current) => {
                         if (!current) return current;
+                        const seatedMe = {
+                          userId: current.me.userId,
+                          seat: seatTarget,
+                          displayName: current.me.displayName,
+                          chips: result.chips,
+                          sittingOut: false,
+                          lastSeenAt: current.serverNow,
+                          online: true,
+                          avatarUrl: current.me.avatarUrl,
+                        };
+                        const alreadyListed = current.players.some(
+                          (player) => player.userId === current.me.userId,
+                        );
                         return {
                           ...current,
-                          players: current.players.map((player) =>
-                            player.userId === current.me.userId
-                              ? { ...player, seat: seatTarget, chips: result.chips }
-                              : player,
-                          ),
+                          players: alreadyListed
+                            ? current.players.map((player) =>
+                                player.userId === current.me.userId
+                                  ? { ...player, ...seatedMe }
+                                  : player,
+                              )
+                            : [...current.players, seatedMe],
                           me: {
                             ...current.me,
                             seat: seatTarget,
@@ -342,6 +357,8 @@ function TableRoom() {
                       });
                       setSeatTarget(null);
                       setBuyin("");
+                      await queryClient.invalidateQueries({ queryKey: ["mesa", codigo] });
+                      toast.success(`Te sentaste en el asiento ${seatTarget + 1}`);
                     })
 
                   }
