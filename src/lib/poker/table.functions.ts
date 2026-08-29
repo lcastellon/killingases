@@ -119,11 +119,16 @@ export const createTable = createServerFn({ method: "POST" })
 
 export const joinTable = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { code: string }) => ({ code: String(input.code ?? "").trim().toUpperCase() }))
+  .inputValidator((input: { code: string; tableId?: string | null }) => ({
+    code: String(input.code ?? "").trim().toUpperCase(),
+    tableId: input.tableId ? String(input.tableId) : null,
+  }))
   .handler(async ({ data, context }) => {
     const { admin, getTableByCode, getPlayers, displayNameFor } = await import("./table.server");
     const db = await admin();
     const table = await getTableByCode(db, data.code);
+    if (data.tableId && table.id !== data.tableId)
+      throw new Error("Ese código no corresponde a la mesa seleccionada");
     if (table.status === "closed") throw new Error("Esa mesa ya fue cerrada por el anfitrión");
     const players = await getPlayers(db, table.id);
     const mine = players.find((p) => p.user_id === context.userId);
