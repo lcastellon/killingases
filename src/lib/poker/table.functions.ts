@@ -376,6 +376,17 @@ export const dealHand = createServerFn({ method: "POST" })
     return dealNewHand(db, table, context.userId);
   });
 
+/** Reparto automático: cualquier jugador sentado puede disparar la siguiente mano. */
+export const autoDealHand = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { code: string }) => ({ code: String(input.code ?? "").trim().toUpperCase() }))
+  .handler(async ({ data, context }) => {
+    const { admin, getTableByCode, dealNewHand } = await import("./table.server");
+    const db = await admin();
+    const table = await getTableByCode(db, data.code);
+    return dealNewHand(db, table, context.userId, { auto: true });
+  });
+
 export const act = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { code: string; action: "fold" | "check" | "call" | "raise"; amount?: number | undefined }) => ({
