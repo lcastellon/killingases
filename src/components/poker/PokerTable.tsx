@@ -96,7 +96,7 @@ export function PokerTable({
               style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
             >
               {slot.view ? (
-                <SeatPill view={slot.view} onAvatarClick={onAvatarClick} />
+                <SeatPill view={slot.view} onAvatarClick={onAvatarClick} cardsBelow={i === 0} />
               ) : (
                 <EmptySeat
                   onClick={

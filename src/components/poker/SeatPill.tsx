@@ -6,12 +6,19 @@ import type { SeatView } from "./Seat";
 export function SeatPill({
   view,
   onAvatarClick,
+  cardsBelow,
 }: {
   view: SeatView;
   onAvatarClick?: (() => void) | undefined;
+  cardsBelow?: boolean | undefined;
 }) {
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div
+      className={cn(
+        "flex items-center gap-1",
+        cardsBelow ? "flex-col-reverse" : "flex-col",
+      )}
+    >
       {/* cartas */}
       {view.cardCount > 0 && (
         <div className="flex items-center">
