@@ -9,7 +9,6 @@ import {
   buyInTable,
   dealHand,
   getTableSnapshot,
-  joinTable,
   leaveTable,
   rebuyTable,
   resetTable,
@@ -62,7 +61,6 @@ function TableRoom() {
   const snapshot = useServerFn(getTableSnapshot);
   const deal = useServerFn(dealHand);
   const sendAction = useServerFn(act);
-  const join = useServerFn(joinTable);
   const leave = useServerFn(leaveTable);
   const buy = useServerFn(buyInTable);
   const rebuy = useServerFn(rebuyTable);
@@ -317,20 +315,33 @@ function TableRoom() {
                       );
                       const delta = target - data.me.chips;
                       if (delta <= 0) throw new Error("Elige una cantidad mayor a tus fichas");
-                      // Si me levanté antes, mi lugar en la mesa ya no existe: vuelvo a entrar.
-                      if (!amAtTable) await join({ data: { code: codigo } });
                       const result = await buy({
                         data: { code: codigo, amount: delta, seat: seatTarget },
                       });
                       queryClient.setQueryData<TableSnapshot>(["mesa", codigo], (current) => {
                         if (!current) return current;
+                        const seatedMe = {
+                          userId: current.me.userId,
+                          seat: seatTarget,
+                          displayName: current.me.displayName,
+                          chips: result.chips,
+                          sittingOut: false,
+                          lastSeenAt: current.serverNow,
+                          online: true,
+                          avatarUrl: current.me.avatarUrl,
+                        };
+                        const alreadyListed = current.players.some(
+                          (player) => player.userId === current.me.userId,
+                        );
                         return {
                           ...current,
-                          players: current.players.map((player) =>
-                            player.userId === current.me.userId
-                              ? { ...player, seat: seatTarget, chips: result.chips }
-                              : player,
-                          ),
+                          players: alreadyListed
+                            ? current.players.map((player) =>
+                                player.userId === current.me.userId
+                                  ? { ...player, ...seatedMe }
+                                  : player,
+                              )
+                            : [...current.players, seatedMe],
                           me: {
                             ...current.me,
                             seat: seatTarget,
@@ -342,6 +353,8 @@ function TableRoom() {
                       });
                       setSeatTarget(null);
                       setBuyin("");
+                      await queryClient.invalidateQueries({ queryKey: ["mesa", codigo] });
+                      toast.success(`Te sentaste en el asiento ${seatTarget + 1}`);
                     })
 
                   }
