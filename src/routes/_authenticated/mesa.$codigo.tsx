@@ -84,9 +84,10 @@ function TableRoom() {
     refetchOnMount: "always",
   });
 
+  // Estable entre renders: si cambiara, el canal de realtime se resuscribiría siempre.
   const refetch = useCallback(() => {
-    void query.refetch();
-  }, [query]);
+    void queryClient.refetchQueries({ queryKey: ["mesa", codigo] });
+  }, [queryClient, codigo]);
 
   useTableRealtime(query.data?.table.id, refetch);
 
