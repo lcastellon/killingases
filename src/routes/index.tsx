@@ -4,7 +4,13 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import { closeTable, createTable, joinTable, listMyTables } from "@/lib/poker/table.functions";
+import {
+  closeTable,
+  createTable,
+  joinTable,
+  listMyTables,
+  listOpenTables,
+} from "@/lib/poker/table.functions";
 import { isHostEmail } from "@/lib/poker/host";
 import { PlayingCard } from "@/components/poker/PlayingCard";
 
@@ -41,6 +47,10 @@ function Home() {
   const [minBuyin, setMinBuyin] = useState(1000);
   const [maxBuyin, setMaxBuyin] = useState(20000);
   const [tables, setTables] = useState<Awaited<ReturnType<typeof listMyTables>>>([]);
+  const openTablesFn = useServerFn(listOpenTables);
+  const [openTables, setOpenTables] = useState<Awaited<ReturnType<typeof listOpenTables>>>([]);
+  const [pendingTableId, setPendingTableId] = useState<string | null>(null);
+  const [pendingCode, setPendingCode] = useState("");
 
   const loadTables = useCallback(async () => {
     try {
@@ -50,14 +60,23 @@ function Home() {
     }
   }, [myTables]);
 
+  const loadOpenTables = useCallback(async () => {
+    try {
+      setOpenTables(await openTablesFn({}));
+    } catch {
+      setOpenTables([]);
+    }
+  }, [openTablesFn]);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSignedIn(Boolean(data.session));
       const host = isHostEmail(data.session?.user.email);
       setIsHost(host);
       if (host) void loadTables();
+      if (data.session) void loadOpenTables();
     });
-  }, [loadTables]);
+  }, [loadTables, loadOpenTables]);
 
   const requireAuth = () => {
     if (signedIn) return true;
@@ -263,6 +282,7 @@ function Home() {
                         try {
                           await close({ data: { code: t.code } });
                           await loadTables();
+                          await loadOpenTables();
                           toast.success("Mesa cerrada");
                         } catch (error) {
                           toast.error(
@@ -279,6 +299,91 @@ function Home() {
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {signedIn && (
+            <div className="rounded-2xl border border-border/70 bg-card/80 p-4">
+              <h2 className="text-xl text-foreground">Mesas disponibles</h2>
+              {openTables.length === 0 ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  No hay mesas abiertas ahora mismo. Pregúntale al anfitrión.
+                </p>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {openTables.map((t) => (
+                    <li
+                      key={t.id}
+                      className="rounded-xl border border-border/60 bg-felt-deep/40 p-3"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-foreground">{t.name}</p>
+                          <p className="text-xs text-primary">
+                            {t.gameVariant === "omaha" ? "No Limit Omaha" : t.gameVariant}
+                          </p>
+                          <p className="tabular mt-1 text-xs text-muted-foreground">
+                            Ciegas {t.smallBlind}/{t.bigBlind} · {t.seated}/{t.maxSeats} sentados ·
+                            compra {t.minBuyin.toLocaleString("es-MX")}–
+                            {t.maxBuyin.toLocaleString("es-MX")}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPendingCode("");
+                            setPendingTableId(pendingTableId === t.id ? null : t.id);
+                          }}
+                          className="rounded-lg border border-brass px-3 py-1.5 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
+                        >
+                          Entrar
+                        </button>
+                      </div>
+
+                      {pendingTableId === t.id && (
+                        <div className="mt-3 flex gap-2">
+                          <input
+                            value={pendingCode}
+                            onChange={(e) => setPendingCode(e.target.value.toUpperCase())}
+                            placeholder="CÓDIGO"
+                            maxLength={8}
+                            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-center font-display text-lg tracking-[0.25em] text-foreground outline-none focus:border-brass"
+                          />
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={async () => {
+                              if (!pendingCode.trim()) {
+                                toast.error("Escribe el código de la mesa");
+                                return;
+                              }
+                              setBusy(true);
+                              try {
+                                const result = await join({
+                                  data: { code: pendingCode, tableId: t.id },
+                                });
+                                navigate({
+                                  to: "/mesa/$codigo",
+                                  params: { codigo: result.code },
+                                });
+                              } catch (error) {
+                                toast.error(
+                                  error instanceof Error ? error.message : "Código incorrecto",
+                                );
+                              } finally {
+                                setBusy(false);
+                              }
+                            }}
+                            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                          >
+                            Ir
+                          </button>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
 
