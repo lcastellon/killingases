@@ -462,9 +462,9 @@ function TableRoom() {
                 type="button"
                 disabled={busy}
                 onClick={() => void run(() => leave({ data: { code: codigo } }))}
-                className="mt-3 w-full rounded-xl border border-border/60 py-2 text-sm text-muted-foreground disabled:opacity-50"
+                className="mt-3 w-full rounded-xl border border-border/60 py-2 text-sm text-muted-foreground transition-colors duration-200 hover:border-destructive/60 hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
               >
-                Levantarme y regresar fichas al banco
+                Levantarme
               </button>
             )}
           </section>
@@ -638,9 +638,9 @@ function TableRoom() {
                 await run(() => leave({ data: { code: codigo } }));
                 navigate({ to: "/" });
               }}
-              className="text-xs text-muted-foreground hover:text-destructive"
+              className="text-xs text-muted-foreground transition-colors duration-200 hover:text-destructive"
             >
-              Levantarme de la mesa
+              Levantarme
             </button>
           )}
         </footer>
