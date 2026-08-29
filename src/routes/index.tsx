@@ -282,6 +282,7 @@ function Home() {
                         try {
                           await close({ data: { code: t.code } });
                           await loadTables();
+                          await loadOpenTables();
                           toast.success("Mesa cerrada");
                         } catch (error) {
                           toast.error(
