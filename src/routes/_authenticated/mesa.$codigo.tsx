@@ -203,6 +203,16 @@ function TableRoom() {
     handOver && data.players.length >= 2 && withChips.length <= 1 && (hand?.handNo ?? 0) > 0;
   const overallWinner = withChips[0] ?? null;
   const iAmBroke = data.me.chips < data.table.bigBlind;
+  const takenSeats = new Set(seatedPlayers.map((p) => p.seat as number));
+  const freeSeats = Array.from({ length: 8 }, (_, i) => i).filter((s) => !takenSeats.has(s));
+  const maxBuyinForMe = Math.min(data.table.maxBuyin, data.me.bankChips);
+  const canSitDown = !amSeated && freeSeats.length > 0 && maxBuyinForMe >= data.table.minBuyin;
+  const openSeatDialog = (seat: number) => {
+    setSeatTarget(seat);
+    setBuyin(
+      String(Math.min(maxBuyinForMe, Math.max(data.table.minBuyin, data.table.startingChips))),
+    );
+  };
 
 
 
@@ -256,22 +266,7 @@ function TableRoom() {
           pot={hand?.pot ?? 0}
           board={hand?.board ?? []}
           onAvatarClick={() => setSettingsOpen(true)}
-          onEmptySeatClick={
-            amAtTable && !amSeated
-              ? (seat) => {
-                  setSeatTarget(seat);
-                  setBuyin(
-                    String(
-                      Math.min(
-                        Math.min(data.table.maxBuyin, data.me.bankChips),
-                         Math.max(data.table.minBuyin, data.table.startingChips),
-                      ),
-                    ),
-                  );
-
-                }
-              : undefined
-          }
+          onEmptySeatClick={!amSeated ? (seat) => openSeatDialog(seat) : undefined}
         />
 
         {/* Sentarse en un asiento libre */}
@@ -322,6 +317,8 @@ function TableRoom() {
                       );
                       const delta = target - data.me.chips;
                       if (delta <= 0) throw new Error("Elige una cantidad mayor a tus fichas");
+                      // Si me levanté antes, mi lugar en la mesa ya no existe: vuelvo a entrar.
+                      if (!amAtTable) await join({ data: { code: codigo } });
                       const result = await buy({
                         data: { code: codigo, amount: delta, seat: seatTarget },
                       });
@@ -411,7 +408,8 @@ function TableRoom() {
         )}
 
         {/* Mis fichas */}
-        {amAtTable && (
+        {(
+
           <section className="mt-4 rounded-2xl border border-brass-soft/40 bg-card/80 p-3">
             <div className="flex items-center justify-between gap-3">
               {amSeated ? (
@@ -557,15 +555,28 @@ function TableRoom() {
             </div>
           )}
 
-          {!amAtTable && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void run(() => join({ data: { code: codigo } }))}
-              className="w-full rounded-xl bg-primary py-3 font-display text-lg tracking-wide text-primary-foreground disabled:opacity-50"
-            >
-              Entrar a la mesa
-            </button>
+          {!amSeated && (
+            <div className="space-y-1">
+              <button
+                type="button"
+                disabled={busy || !canSitDown}
+                onClick={() => {
+                  const seat = freeSeats[0];
+                  if (seat === undefined) return;
+                  openSeatDialog(seat);
+                }}
+                className="w-full rounded-xl bg-primary py-3 font-display text-lg tracking-wide text-primary-foreground disabled:opacity-50"
+              >
+                Sentarme en la mesa
+              </button>
+              <p className="text-center text-xs text-muted-foreground">
+                {freeSeats.length === 0
+                  ? "La mesa está llena."
+                  : maxBuyinForMe < data.table.minBuyin
+                    ? `Necesitas al menos ${data.table.minBuyin.toLocaleString("es-MX")} en tu banco; pide fichas al anfitrión.`
+                    : `Elige tu compra entre ${data.table.minBuyin.toLocaleString("es-MX")} y ${maxBuyinForMe.toLocaleString("es-MX")}, o toca un asiento libre.`}
+              </p>
+            </div>
           )}
 
           {data.me.isHost && handOver && seatedCount >= 2 && (
