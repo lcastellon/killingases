@@ -443,10 +443,21 @@ export async function adjustPlayerBank(
 }
 
 
-export async function dealNewHand(db: AdminClient, table: TableRow, userId: string) {
-  if (table.host_id !== userId) throw new Error("Solo el anfitrión puede repartir");
+export async function dealNewHand(
+  db: AdminClient,
+  table: TableRow,
+  userId: string,
+  opts?: { auto?: boolean },
+) {
   await reconcileSeats(db, table);
   const players = await getPlayers(db, table.id);
+  if (!opts?.auto && table.host_id !== userId)
+    throw new Error("Solo el anfitrión puede repartir");
+  if (opts?.auto) {
+    const caller = players.find((p) => p.user_id === userId);
+    if (!caller || caller.seat === null)
+      throw new Error("Solo un jugador sentado puede iniciar la mano");
+  }
   const seated = players.filter(
     (p): p is PlayerRow & { seat: number } =>
       p.seat !== null && !p.sitting_out && p.chips >= table.min_buyin,
