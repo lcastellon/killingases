@@ -13,6 +13,8 @@ export function useTableRealtime(tableId: string | undefined, onChange: () => vo
   useEffect(() => {
     if (!tableId) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
     const notify = () => {
       if (timer) return;
       timer = setTimeout(() => {
@@ -21,29 +23,40 @@ export function useTableRealtime(tableId: string | undefined, onChange: () => vo
       }, 250);
     };
 
-    const channel = supabase
-      .channel(`mesa-${tableId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "hands", filter: `table_id=eq.${tableId}` },
-        notify,
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "table_players", filter: `table_id=eq.${tableId}` },
-        notify,
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "poker_tables", filter: `id=eq.${tableId}` },
-        notify,
-      )
-      .on("postgres_changes", { event: "*", schema: "public", table: "hand_cards" }, notify)
-      .subscribe();
+    void (async () => {
+      // Sin token, el socket es anónimo y RLS bloquea la entrega de cambios:
+      // la mesa solo se actualizaría por sondeo.
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (token) await supabase.realtime.setAuth(token);
+      if (cancelled) return;
+
+      channel = supabase
+        .channel(`mesa-${tableId}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "hands", filter: `table_id=eq.${tableId}` },
+          notify,
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "table_players", filter: `table_id=eq.${tableId}` },
+          notify,
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "poker_tables", filter: `id=eq.${tableId}` },
+          notify,
+        )
+        .on("postgres_changes", { event: "*", schema: "public", table: "hand_cards" }, notify)
+        .subscribe();
+    })();
 
     return () => {
+      cancelled = true;
       if (timer) clearTimeout(timer);
-      void supabase.removeChannel(channel);
+      if (channel) void supabase.removeChannel(channel);
     };
   }, [tableId]);
+
 }
