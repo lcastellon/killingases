@@ -75,7 +75,7 @@ function TableRoom() {
   const query = useQuery({
     queryKey: ["mesa", codigo],
     queryFn: () => snapshot({ data: { code: codigo } }),
-    refetchInterval: 2000,
+    refetchInterval: 4000,
     // La vista previa vive en un iframe que casi nunca tiene el foco: sin esto
     // el sondeo se pausa y la mesa se queda con datos viejos.
     refetchIntervalInBackground: true,
@@ -84,9 +84,10 @@ function TableRoom() {
     refetchOnMount: "always",
   });
 
+  // Estable entre renders: si cambiara, el canal de realtime se resuscribiría siempre.
   const refetch = useCallback(() => {
-    void query.refetch();
-  }, [query]);
+    void queryClient.refetchQueries({ queryKey: ["mesa", codigo] });
+  }, [queryClient, codigo]);
 
   useTableRealtime(query.data?.table.id, refetch);
 
