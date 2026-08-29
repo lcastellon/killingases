@@ -16,9 +16,9 @@ export function SeatPill({
     <div
       className={cn("flex flex-col items-center gap-1")}
     >
-      {/* cartas */}
-      {view.cardCount > 0 && (
-        <div className={cn("flex items-center", cardsBelow && "order-2")}>
+      {/* cartas: en el asiento local van debajo para no tapar la mesa */}
+      {!cardsBelow && view.cardCount > 0 && (
+        <div className="flex items-center">
           {Array.from({ length: view.cardCount }).map((_, i) => (
             <PlayingCard
               key={i}
@@ -36,7 +36,6 @@ export function SeatPill({
           "flex items-center gap-1 rounded-full border bg-felt-deep/95 py-0.5 pl-0.5 pr-2 shadow-chip backdrop-blur transition-all sm:gap-2 sm:py-1 sm:pl-1 sm:pr-3",
           view.isTurn ? "border-brass shadow-[0_0_0_2px_var(--brass)]" : "border-brass-soft/40",
           view.folded && "opacity-45",
-          cardsBelow && "order-1",
         )}
       >
         <button
@@ -88,7 +87,6 @@ export function SeatPill({
       <div
         className={cn(
           "flex min-h-[1rem] max-w-[10rem] flex-col items-center text-center",
-          cardsBelow && "order-3",
         )}
       >
         {view.bet > 0 && (
@@ -111,6 +109,19 @@ export function SeatPill({
           </span>
         ) : null}
       </div>
+      {cardsBelow && view.cardCount > 0 && (
+        <div className="flex items-center">
+          {Array.from({ length: view.cardCount }).map((_, i) => (
+            <PlayingCard
+              key={i}
+              size="sm"
+              card={view.cards?.[i] ?? null}
+              dimmed={view.folded}
+              className={i > 0 ? "-ml-3 sm:-ml-4" : undefined}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
