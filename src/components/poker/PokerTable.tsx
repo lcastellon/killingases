@@ -63,6 +63,14 @@ export function PokerTable({
 
         {/* Centro: bote y cartas comunitarias */}
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 px-3 sm:gap-2 sm:px-6">
+          <div className="flex flex-col items-center">
+            <span className="tabular font-display text-lg leading-none text-primary sm:text-2xl">
+              {pot.toLocaleString("es-MX")}
+            </span>
+            <span className="text-[0.6rem] uppercase tracking-widest text-muted-foreground">
+              Bote
+            </span>
+          </div>
           <div className="flex gap-1 sm:gap-1.5">
             {Array.from({ length: 5 }).map((_, i) => {
               const card = board[i];
@@ -75,14 +83,6 @@ export function PokerTable({
                 />
               );
             })}
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="tabular font-display text-lg leading-none text-primary sm:text-2xl">
-              {pot.toLocaleString("es-MX")}
-            </span>
-            <span className="text-[0.6rem] uppercase tracking-widest text-muted-foreground">
-              Bote
-            </span>
           </div>
         </div>
 
