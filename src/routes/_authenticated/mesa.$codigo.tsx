@@ -1,11 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
 import {
   act,
+  autoDealHand,
   buyInTable,
   dealHand,
   getTableSnapshot,
@@ -104,6 +105,35 @@ function TableRoom() {
     applyFeltTheme(feltTheme);
   }, [feltTheme]);
   const hand = data?.hand ?? null;
+
+  // Reparto automático: en cuanto hay 2+ jugadores con la compra mínima y no
+  // hay mano en curso, el jugador del asiento más bajo dispara la mano.
+  const autoDeal = useServerFn(autoDealHand);
+  const autoDealRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!data) return;
+    const table = data.table;
+    const eligible = data.players
+      .filter((p) => p.seat !== null && p.chips >= table.minBuyin)
+      .sort((a, b) => (a.seat as number) - (b.seat as number));
+    const overNow = !data.hand || data.hand.complete;
+    if (!overNow || eligible.length < 2) return;
+    // Un solo cliente reparte para evitar carreras: el asiento más bajo.
+    if (eligible[0]!.userId !== data.me.userId) return;
+    const key = `${table.id}:${data.hand?.handNo ?? 0}`;
+    if (autoDealRef.current === key) return;
+    autoDealRef.current = key;
+    const delay = data.hand ? 4000 : 1500;
+    const timer = setTimeout(() => {
+      void autoDeal({ data: { code: codigo } })
+        .then(() => refetch())
+        .catch(() => {
+          autoDealRef.current = null;
+        });
+    }, delay);
+    return () => clearTimeout(timer);
+  }, [data, autoDeal, codigo, refetch]);
+
 
   const spectators = useMemo(
     () => (data ? data.players.filter((p) => p.seat === null) : []),
