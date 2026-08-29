@@ -14,14 +14,11 @@ export function SeatPill({
 }) {
   return (
     <div
-      className={cn(
-        "flex items-center gap-1",
-        cardsBelow ? "flex-col-reverse" : "flex-col",
-      )}
+      className={cn("flex flex-col items-center gap-1")}
     >
       {/* cartas */}
       {view.cardCount > 0 && (
-        <div className="flex items-center">
+        <div className={cn("flex items-center", cardsBelow && "order-2")}>
           {Array.from({ length: view.cardCount }).map((_, i) => (
             <PlayingCard
               key={i}
@@ -39,6 +36,7 @@ export function SeatPill({
           "flex items-center gap-1 rounded-full border bg-felt-deep/95 py-0.5 pl-0.5 pr-2 shadow-chip backdrop-blur transition-all sm:gap-2 sm:py-1 sm:pl-1 sm:pr-3",
           view.isTurn ? "border-brass shadow-[0_0_0_2px_var(--brass)]" : "border-brass-soft/40",
           view.folded && "opacity-45",
+          cardsBelow && "order-1",
         )}
       >
         <button
@@ -87,7 +85,12 @@ export function SeatPill({
         </div>
       </div>
 
-      <div className="flex min-h-[1rem] flex-col items-center">
+      <div
+        className={cn(
+          "flex min-h-[1rem] max-w-[10rem] flex-col items-center text-center",
+          cardsBelow && "order-3",
+        )}
+      >
         {view.bet > 0 && (
           <span className="tabular rounded-full border border-brass-soft/50 bg-card/90 px-2 text-[0.65rem] text-primary">
             {view.bet.toLocaleString("es-MX")}
