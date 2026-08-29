@@ -56,14 +56,22 @@ export function PokerTable({
     meIndex > 0 ? [...filled.slice(meIndex), ...filled.slice(0, meIndex)] : filled;
 
   return (
-    <div className="relative mx-auto w-full max-w-3xl px-16 py-16 sm:px-24 sm:py-20">
+    <div className="relative mx-auto w-full max-w-3xl px-9 py-12 sm:px-24 sm:py-20">
       {/* Riel y fieltro */}
-      <div className="relative aspect-[16/9] w-full rounded-[50%] border-[10px] border-felt-deep bg-[radial-gradient(circle_at_50%_35%,var(--felt)_0%,var(--felt-deep)_85%)] shadow-table ring-2 ring-brass-soft/40">
+      <div className="relative aspect-[16/9] w-full rounded-[50%] border-[6px] sm:border-[10px] border-felt-deep bg-[radial-gradient(circle_at_50%_35%,var(--felt)_0%,var(--felt-deep)_85%)] shadow-table ring-2 ring-brass-soft/40">
         <div className="absolute inset-3 rounded-[50%] border border-felt-line/40" />
 
         {/* Centro: bote y cartas comunitarias */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6">
-          <div className="flex gap-1.5">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 px-3 sm:gap-2 sm:px-6">
+          <div className="flex flex-col items-center">
+            <span className="tabular font-display text-lg leading-none text-primary sm:text-2xl">
+              {pot.toLocaleString("es-MX")}
+            </span>
+            <span className="text-[0.6rem] uppercase tracking-widest text-muted-foreground">
+              Bote
+            </span>
+          </div>
+          <div className="flex gap-1 sm:gap-1.5">
             {Array.from({ length: 5 }).map((_, i) => {
               const card = board[i];
               return card ? (
@@ -71,18 +79,10 @@ export function PokerTable({
               ) : (
                 <div
                   key={i}
-                  className="h-16 w-11 rounded-md border border-dashed border-felt-line/40"
+                  className="h-12 w-8 rounded border border-dashed border-felt-line/40 sm:h-16 sm:w-11 sm:rounded-md"
                 />
               );
             })}
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="tabular font-display text-2xl leading-none text-primary">
-              {pot.toLocaleString("es-MX")}
-            </span>
-            <span className="text-[0.6rem] uppercase tracking-widest text-muted-foreground">
-              Bote
-            </span>
           </div>
         </div>
 
@@ -96,7 +96,7 @@ export function PokerTable({
               style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
             >
               {slot.view ? (
-                <SeatPill view={slot.view} onAvatarClick={onAvatarClick} />
+                <SeatPill view={slot.view} onAvatarClick={onAvatarClick} cardsBelow={i === 0} />
               ) : (
                 <EmptySeat
                   onClick={

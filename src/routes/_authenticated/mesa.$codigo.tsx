@@ -255,50 +255,52 @@ function TableRoom() {
 
   return (
     <main className="felt-surface min-h-screen pb-4">
-      <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-4 py-4">
-        <header className="flex items-center justify-between gap-3">
-          <Link to="/" className="font-display text-xl tracking-widest text-primary">
+      <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-2 py-2 sm:px-4 sm:py-4">
+        <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+          <Link
+            to="/"
+            className="truncate font-display text-sm tracking-widest text-primary sm:text-xl"
+          >
             Killing Ases Poker Club
           </Link>
-          <button
-            type="button"
-            onClick={() => {
-              void navigator.clipboard?.writeText(data.table.code);
-              toast.success("Código copiado");
-            }}
-            className="rounded-lg border border-brass-soft/50 bg-card px-3 py-1.5 text-sm"
-          >
-            Código <span className="font-display tracking-[0.2em] text-primary">{data.table.code}</span>
-          </button>
-        </header>
-
-        <div className="mt-2 flex justify-end">
-          <button
-            type="button"
-            onClick={() => setSettingsOpen(true)}
-            className="flex items-center gap-2 rounded-full border border-brass-soft/50 bg-card px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
-          >
-            <span className="grid h-6 w-6 place-items-center overflow-hidden rounded-full border border-brass bg-felt/60 font-display text-[0.6rem] text-primary">
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                void navigator.clipboard?.writeText(data.table.code);
+                toast.success("Código copiado");
+              }}
+              className="rounded-lg border border-brass-soft/50 bg-card px-2 py-1 text-[0.7rem] sm:px-3 sm:py-1.5 sm:text-sm"
+            >
+              <span className="font-display tracking-[0.2em] text-primary">
+                {data.table.code}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(true)}
+              aria-label="Mi perfil"
+              className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full border border-brass bg-felt/60 font-display text-[0.6rem] text-primary"
+            >
               {data.me.avatarUrl ? (
                 <img src={data.me.avatarUrl} alt="Tu avatar" className="h-full w-full object-cover" />
               ) : (
                 data.me.displayName.slice(0, 2).toUpperCase()
               )}
-            </span>
-            Mi perfil
-          </button>
-        </div>
+            </button>
+          </div>
+        </header>
 
-        <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-          <span>
-            Ciegas {data.table.smallBlind}/{data.table.bigBlind} · No Limit Omaha
+        <div className="mt-1.5 flex items-center justify-between gap-2 text-[0.7rem] text-muted-foreground sm:text-xs">
+          <span className="truncate">
+            {data.table.smallBlind}/{data.table.bigBlind} · No Limit Omaha
           </span>
           {hand ? (
-            <span>{`Mano #${hand.handNo} · ${STREET_LABEL[hand.street]}`}</span>
+            <span className="shrink-0">{`Mano #${hand.handNo} · ${STREET_LABEL[hand.street]}`}</span>
           ) : (
             <Link
               to="/"
-              className="rounded-lg border border-brass-soft/50 bg-card px-2.5 py-1 font-display tracking-wide text-primary transition-colors hover:bg-primary/10"
+              className="shrink-0 rounded-lg border border-brass-soft/50 bg-card px-2.5 py-1 font-display tracking-wide text-primary transition-colors hover:bg-primary/10"
             >
               Lobby
             </Link>
@@ -474,14 +476,14 @@ function TableRoom() {
         {/* Mis fichas */}
         {(
 
-          <section className="mt-4 rounded-2xl border border-brass-soft/40 bg-card/80 p-3">
+          <section className="mt-2 rounded-2xl border border-brass-soft/40 bg-card/80 p-2.5 sm:mt-4 sm:p-3">
             <div className="flex items-center justify-between gap-3">
               {amSeated ? (
                 <div>
                   <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
                     Fichas en la mesa
                   </p>
-                  <p className="tabular font-display text-3xl text-primary">
+                  <p className="tabular font-display text-2xl text-primary sm:text-3xl">
                     {data.me.chips.toLocaleString("es-MX")}
                   </p>
                 </div>
@@ -494,7 +496,7 @@ function TableRoom() {
                 <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
                   Banco del club
                 </p>
-                <p className="tabular font-display text-2xl text-brass">
+                <p className="tabular font-display text-xl text-brass sm:text-2xl">
                   {data.me.bankChips.toLocaleString("es-MX")}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -552,7 +554,7 @@ function TableRoom() {
 
         {/* Mis cartas */}
         {data.myCards && (
-          <section className="mt-4 flex items-end justify-between rounded-2xl border border-brass-soft/40 bg-card/80 p-3">
+          <section className="mt-2 flex items-end justify-between rounded-2xl border border-brass-soft/40 bg-card/80 p-2.5 sm:mt-4 sm:p-3">
             <div className="flex gap-2">
               {data.myCards.map((c) => (
                 <PlayingCard key={c} card={c} size="lg" />
@@ -562,14 +564,14 @@ function TableRoom() {
               <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
                 Tu mano
               </p>
-              <p className="font-display text-xl text-primary">{myBest?.name ?? "Omaha"}</p>
+              <p className="font-display text-base text-primary sm:text-xl">{myBest?.name ?? "Omaha"}</p>
             </div>
           </section>
         )}
 
 
         {/* Acciones */}
-        <section className="mt-4 space-y-3">
+        <section className="sticky bottom-0 z-30 -mx-2 mt-2 space-y-2 bg-gradient-to-t from-background/95 via-background/85 to-transparent px-2 pb-2 pt-2 backdrop-blur sm:static sm:mx-0 sm:mt-4 sm:space-y-3 sm:bg-none sm:px-0 sm:pb-0 sm:backdrop-blur-none">
           {hand && !hand.complete && hand.turnEndsAt && hand.currentSeat !== null && (
             <TurnTimer
               endsAt={hand.turnEndsAt}
@@ -694,17 +696,17 @@ function TableRoom() {
 
         {/* Historial */}
         {hand?.log?.length ? (
-          <section className="mt-5 rounded-2xl border border-border/50 bg-card/50 p-3">
+          <section className="mt-3 rounded-2xl border border-border/50 bg-card/50 p-2.5 sm:mt-5 sm:p-3">
             <h2 className="text-sm text-muted-foreground">Historial de la mano</h2>
             <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-              {hand.log.slice(-8).map((line, i) => (
+              {hand.log.slice(-5).map((line, i) => (
                 <li key={`${i}-${line}`}>{line}</li>
               ))}
             </ul>
           </section>
         ) : null}
 
-        <footer className="mt-auto pt-6 text-center">
+        <footer className="mt-auto pt-4 text-center sm:pt-6">
           {amAtTable && (
             <button
               type="button"

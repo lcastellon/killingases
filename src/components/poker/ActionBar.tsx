@@ -26,7 +26,7 @@ export function ActionBar({
   ];
 
   return (
-    <div className="space-y-3 rounded-2xl border border-brass-soft/40 bg-card/95 p-3 shadow-table backdrop-blur">
+    <div className="space-y-2 rounded-2xl border border-brass-soft/40 bg-card/95 p-2.5 shadow-table backdrop-blur sm:space-y-3 sm:p-3">
       {legal.canRaise && (
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
