@@ -192,6 +192,15 @@ export const listMyTables = createServerFn({ method: "POST" })
     return listHostTables(db, context.userId);
   });
 
+/** Mesas abiertas visibles para cualquier jugador autenticado (sin el código). */
+export const listOpenTables = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
+    const { admin, listOpenTables: list } = await import("./table.server");
+    const db = await admin();
+    return list(db);
+  });
+
 export const closeTable = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { code: string }) => ({ code: String(input.code ?? "").trim().toUpperCase() }))
