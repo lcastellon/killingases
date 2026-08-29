@@ -255,8 +255,18 @@ function TableRoom() {
           <span>
             Ciegas {data.table.smallBlind}/{data.table.bigBlind} · No Limit Omaha
           </span>
-          <span>{hand ? `Mano #${hand.handNo} · ${STREET_LABEL[hand.street]}` : "En lobby"}</span>
+          {hand ? (
+            <span>{`Mano #${hand.handNo} · ${STREET_LABEL[hand.street]}`}</span>
+          ) : (
+            <Link
+              to="/"
+              className="rounded-lg border border-brass-soft/50 bg-card px-2.5 py-1 font-display tracking-wide text-primary transition-colors hover:bg-primary/10"
+            >
+              En lobby · Ir a las mesas
+            </Link>
+          )}
         </div>
+
 
         {/* Mesa */}
         <PokerTable
