@@ -4,7 +4,13 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import { closeTable, createTable, joinTable, listMyTables } from "@/lib/poker/table.functions";
+import {
+  closeTable,
+  createTable,
+  joinTable,
+  listMyTables,
+  listOpenTables,
+} from "@/lib/poker/table.functions";
 import { isHostEmail } from "@/lib/poker/host";
 import { PlayingCard } from "@/components/poker/PlayingCard";
 
