@@ -262,7 +262,7 @@ function TableRoom() {
               to="/"
               className="rounded-lg border border-brass-soft/50 bg-card px-2.5 py-1 font-display tracking-wide text-primary transition-colors hover:bg-primary/10"
             >
-              En lobby · Ir a las mesas
+              Lobby
             </Link>
           )}
         </div>
