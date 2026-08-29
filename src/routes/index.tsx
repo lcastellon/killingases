@@ -149,7 +149,7 @@ function Home() {
             <span className="block text-primary">{"\n"}</span>
           </h1>
           <p className="mt-4 text-sm text-muted-foreground">
-            Crea una mesa privada, comparte el código y reparte. Cada quien juega desde su teléfono,
+             Crea una mesa privada, y comparte el código. Cada quien juega desde su teléfono,
             en tiempo real, con fichas de práctica.
           </p>
         </section>
