@@ -334,6 +334,49 @@ export async function listHostTables(db: AdminClient, hostId: string) {
   }));
 }
 
+/** Mesas abiertas del club, visibles para invitados (sin exponer el código). */
+export async function listOpenTables(db: AdminClient) {
+  const { data, error } = await db
+    .from("poker_tables")
+    .select(
+      "id, name, status, game_variant, small_blind, big_blind, min_buyin, max_buyin, hand_no, created_at",
+    )
+    .neq("status", "closed")
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  const tables = data ?? [];
+
+  const seated = new Map<string, number>();
+  if (tables.length > 0) {
+    const { data: rows, error: playersError } = await db
+      .from("table_players")
+      .select("table_id, seat")
+      .in(
+        "table_id",
+        tables.map((t) => t.id),
+      );
+    if (playersError) throw new Error(playersError.message);
+    for (const row of rows ?? []) {
+      if (row.seat === null) continue;
+      seated.set(row.table_id, (seated.get(row.table_id) ?? 0) + 1);
+    }
+  }
+
+  return tables.map((t) => ({
+    id: t.id,
+    name: t.name,
+    status: t.status,
+    gameVariant: t.game_variant,
+    smallBlind: t.small_blind,
+    bigBlind: t.big_blind,
+    minBuyin: t.min_buyin,
+    maxBuyin: t.max_buyin,
+    handNo: t.hand_no,
+    seated: seated.get(t.id) ?? 0,
+    maxSeats: 8,
+  }));
+}
+
 /**
  * Recarga en mesa: el jugador completa su stack hasta el objetivo de la mesa
  * tomando las fichas de su banco global (nunca se crean fichas).
