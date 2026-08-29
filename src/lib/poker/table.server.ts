@@ -554,13 +554,19 @@ export async function performAction(
   return { complete: next.complete };
 }
 
-/** Touch presence so the table can tell who is still connected. */
+/**
+ * Touch presence so the table can tell who is still connected.
+ * Solo escribe si el último latido tiene más de 15s: escribir en cada lectura
+ * disparaba realtime, que refrescaba, que volvía a escribir (bucle infinito).
+ */
 export async function touchPresence(db: AdminClient, tableId: string, userId: string) {
+  const cutoff = new Date(Date.now() - 15_000).toISOString();
   await db
     .from("table_players")
     .update({ last_seen_at: new Date().toISOString() })
     .eq("table_id", tableId)
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .lt("last_seen_at", cutoff);
 }
 
 /**
