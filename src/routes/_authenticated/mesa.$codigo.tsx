@@ -554,15 +554,28 @@ function TableRoom() {
             </div>
           )}
 
-          {!amAtTable && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void run(() => join({ data: { code: codigo } }))}
-              className="w-full rounded-xl bg-primary py-3 font-display text-lg tracking-wide text-primary-foreground disabled:opacity-50"
-            >
-              Entrar a la mesa
-            </button>
+          {!amSeated && (
+            <div className="space-y-1">
+              <button
+                type="button"
+                disabled={busy || !canSitDown}
+                onClick={() => {
+                  const seat = freeSeats[0];
+                  if (seat === undefined) return;
+                  openSeatDialog(seat);
+                }}
+                className="w-full rounded-xl bg-primary py-3 font-display text-lg tracking-wide text-primary-foreground disabled:opacity-50"
+              >
+                Sentarme en la mesa
+              </button>
+              <p className="text-center text-xs text-muted-foreground">
+                {freeSeats.length === 0
+                  ? "La mesa está llena."
+                  : maxBuyinForMe < data.table.minBuyin
+                    ? `Necesitas al menos ${data.table.minBuyin.toLocaleString("es-MX")} en tu banco; pide fichas al anfitrión.`
+                    : `Elige tu compra entre ${data.table.minBuyin.toLocaleString("es-MX")} y ${maxBuyinForMe.toLocaleString("es-MX")}, o toca un asiento libre.`}
+              </p>
+            </div>
           )}
 
           {data.me.isHost && handOver && seatedCount >= 2 && (
