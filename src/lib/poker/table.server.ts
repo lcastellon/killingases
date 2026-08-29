@@ -208,7 +208,6 @@ export async function buyIn(
 
   const players = await getPlayers(db, table.id);
   const me = players.find((p) => p.user_id === userId);
-  if (!me) throw new Error("Primero entra a la mesa");
 
   const bank = await getBank(db, userId);
   if (wanted > bank)
@@ -216,7 +215,8 @@ export async function buyIn(
       `Tu banco tiene ${bank.toLocaleString("es-MX")} fichas; pide fichas al anfitrión`,
     );
 
-  const total = me.chips + wanted;
+  const currentChips = me?.chips ?? 0;
+  const total = currentChips + wanted;
   if (total < table.min_buyin)
     throw new Error(`La compra mínima es ${table.min_buyin.toLocaleString("es-MX")}`);
   if (total > table.max_buyin)
@@ -224,7 +224,7 @@ export async function buyIn(
 
   const patch: { chips: number; seat?: number } = { chips: total };
 
-  if (seat !== undefined && seat !== null && me.seat === null) {
+  if (seat !== undefined && seat !== null && (me?.seat ?? null) === null) {
     const wantedSeat = Math.trunc(Number(seat));
     if (!Number.isInteger(wantedSeat) || wantedSeat < 0 || wantedSeat >= MAX_SEATS)
       throw new Error("Ese asiento no existe");
@@ -235,7 +235,15 @@ export async function buyIn(
   }
 
   await setBank(db, userId, bank - wanted);
-  const { error } = await db.from("table_players").update(patch).eq("id", me.id);
+  const { error } = me
+    ? await db.from("table_players").update(patch).eq("id", me.id)
+    : await db.from("table_players").insert({
+        table_id: table.id,
+        user_id: userId,
+        seat: patch.seat ?? null,
+        display_name: await displayNameFor(db, userId),
+        chips: total,
+      });
   if (error) {
     // Revertimos el cargo al banco si no pudimos acreditar las fichas en la mesa.
     await setBank(db, userId, bank);
