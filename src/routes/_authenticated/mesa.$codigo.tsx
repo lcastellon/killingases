@@ -408,7 +408,8 @@ function TableRoom() {
         )}
 
         {/* Mis fichas */}
-        {amAtTable && (
+        {(
+
           <section className="mt-4 rounded-2xl border border-brass-soft/40 bg-card/80 p-3">
             <div className="flex items-center justify-between gap-3">
               {amSeated ? (
