@@ -66,7 +66,10 @@ export function SeatPill({
               {view.name}
             </span>
             {view.isButton && (
-              <span className="rounded-full bg-primary px-1 text-[0.55rem] font-bold text-primary-foreground">
+              <span
+                title="Botón (dealer)"
+                className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-brass bg-background text-[0.55rem] font-bold text-foreground shadow"
+              >
                 D
               </span>
             )}
