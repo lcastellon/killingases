@@ -266,22 +266,7 @@ function TableRoom() {
           pot={hand?.pot ?? 0}
           board={hand?.board ?? []}
           onAvatarClick={() => setSettingsOpen(true)}
-          onEmptySeatClick={
-            amAtTable && !amSeated
-              ? (seat) => {
-                  setSeatTarget(seat);
-                  setBuyin(
-                    String(
-                      Math.min(
-                        Math.min(data.table.maxBuyin, data.me.bankChips),
-                         Math.max(data.table.minBuyin, data.table.startingChips),
-                      ),
-                    ),
-                  );
-
-                }
-              : undefined
-          }
+          onEmptySeatClick={!amSeated ? (seat) => openSeatDialog(seat) : undefined}
         />
 
         {/* Sentarse en un asiento libre */}
