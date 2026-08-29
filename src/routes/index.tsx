@@ -47,6 +47,10 @@ function Home() {
   const [minBuyin, setMinBuyin] = useState(1000);
   const [maxBuyin, setMaxBuyin] = useState(20000);
   const [tables, setTables] = useState<Awaited<ReturnType<typeof listMyTables>>>([]);
+  const openTablesFn = useServerFn(listOpenTables);
+  const [openTables, setOpenTables] = useState<Awaited<ReturnType<typeof listOpenTables>>>([]);
+  const [pendingTableId, setPendingTableId] = useState<string | null>(null);
+  const [pendingCode, setPendingCode] = useState("");
 
   const loadTables = useCallback(async () => {
     try {
@@ -56,14 +60,23 @@ function Home() {
     }
   }, [myTables]);
 
+  const loadOpenTables = useCallback(async () => {
+    try {
+      setOpenTables(await openTablesFn({}));
+    } catch {
+      setOpenTables([]);
+    }
+  }, [openTablesFn]);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSignedIn(Boolean(data.session));
       const host = isHostEmail(data.session?.user.email);
       setIsHost(host);
       if (host) void loadTables();
+      if (data.session) void loadOpenTables();
     });
-  }, [loadTables]);
+  }, [loadTables, loadOpenTables]);
 
   const requireAuth = () => {
     if (signedIn) return true;
