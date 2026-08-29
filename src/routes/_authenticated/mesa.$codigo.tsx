@@ -476,14 +476,14 @@ function TableRoom() {
         {/* Mis fichas */}
         {(
 
-          <section className="mt-4 rounded-2xl border border-brass-soft/40 bg-card/80 p-3">
+          <section className="mt-2 rounded-2xl border border-brass-soft/40 bg-card/80 p-2.5 sm:mt-4 sm:p-3">
             <div className="flex items-center justify-between gap-3">
               {amSeated ? (
                 <div>
                   <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
                     Fichas en la mesa
                   </p>
-                  <p className="tabular font-display text-3xl text-primary">
+                  <p className="tabular font-display text-2xl text-primary sm:text-3xl">
                     {data.me.chips.toLocaleString("es-MX")}
                   </p>
                 </div>
@@ -496,7 +496,7 @@ function TableRoom() {
                 <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
                   Banco del club
                 </p>
-                <p className="tabular font-display text-2xl text-brass">
+                <p className="tabular font-display text-xl text-brass sm:text-2xl">
                   {data.me.bankChips.toLocaleString("es-MX")}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -554,7 +554,7 @@ function TableRoom() {
 
         {/* Mis cartas */}
         {data.myCards && (
-          <section className="mt-4 flex items-end justify-between rounded-2xl border border-brass-soft/40 bg-card/80 p-3">
+          <section className="mt-2 flex items-end justify-between rounded-2xl border border-brass-soft/40 bg-card/80 p-2.5 sm:mt-4 sm:p-3">
             <div className="flex gap-2">
               {data.myCards.map((c) => (
                 <PlayingCard key={c} card={c} size="lg" />
@@ -564,14 +564,14 @@ function TableRoom() {
               <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
                 Tu mano
               </p>
-              <p className="font-display text-xl text-primary">{myBest?.name ?? "Omaha"}</p>
+              <p className="font-display text-base text-primary sm:text-xl">{myBest?.name ?? "Omaha"}</p>
             </div>
           </section>
         )}
 
 
         {/* Acciones */}
-        <section className="mt-4 space-y-3">
+        <section className="sticky bottom-0 z-30 -mx-2 mt-2 space-y-2 bg-gradient-to-t from-background/95 via-background/85 to-transparent px-2 pb-2 pt-2 backdrop-blur sm:static sm:mx-0 sm:mt-4 sm:space-y-3 sm:bg-none sm:px-0 sm:pb-0 sm:backdrop-blur-none">
           {hand && !hand.complete && hand.turnEndsAt && hand.currentSeat !== null && (
             <TurnTimer
               endsAt={hand.turnEndsAt}
@@ -696,17 +696,17 @@ function TableRoom() {
 
         {/* Historial */}
         {hand?.log?.length ? (
-          <section className="mt-5 rounded-2xl border border-border/50 bg-card/50 p-3">
+          <section className="mt-3 rounded-2xl border border-border/50 bg-card/50 p-2.5 sm:mt-5 sm:p-3">
             <h2 className="text-sm text-muted-foreground">Historial de la mano</h2>
             <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-              {hand.log.slice(-8).map((line, i) => (
+              {hand.log.slice(-5).map((line, i) => (
                 <li key={`${i}-${line}`}>{line}</li>
               ))}
             </ul>
           </section>
         ) : null}
 
-        <footer className="mt-auto pt-6 text-center">
+        <footer className="mt-auto pt-4 text-center sm:pt-6">
           {amAtTable && (
             <button
               type="button"
