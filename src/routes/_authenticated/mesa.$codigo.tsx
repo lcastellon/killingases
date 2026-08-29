@@ -73,9 +73,16 @@ function TableRoom() {
 
 
   const query = useQuery({
-    queryKey: ["mesa", codigo],
+    // Versionamos la llave para no reutilizar snapshots antiguos creados antes
+    // de que el jugador recibiera asiento.
+    queryKey: ["mesa-live-v2", codigo],
     queryFn: () => snapshot({ data: { code: codigo } }),
     refetchInterval: 2000,
+    // La mesa es estado vivo: cada respuesta debe reemplazar el snapshot previo.
+    // Desactivar structural sharing evita conservar ramas antiguas de jugadores
+    // cuando otro cliente cambia de espectador a un asiento.
+    structuralSharing: false,
+    staleTime: 0,
     // La vista previa vive en un iframe que casi nunca tiene el foco: sin esto
     // el sondeo se pausa y la mesa se queda con datos viejos.
     refetchIntervalInBackground: true,
@@ -86,7 +93,7 @@ function TableRoom() {
 
   // Estable entre renders: si cambiara, el canal de realtime se resuscribiría siempre.
   const refetch = useCallback(() => {
-    void queryClient.refetchQueries({ queryKey: ["mesa", codigo] });
+    void queryClient.refetchQueries({ queryKey: ["mesa-live-v2", codigo], exact: true });
   }, [queryClient, codigo]);
 
   useTableRealtime(query.data?.table.id, refetch);
@@ -329,7 +336,7 @@ function TableRoom() {
                       const result = await buy({
                         data: { code: codigo, amount: delta, seat: seatTarget },
                       });
-                      queryClient.setQueryData<TableSnapshot>(["mesa", codigo], (current) => {
+                      queryClient.setQueryData<TableSnapshot>(["mesa-live-v2", codigo], (current) => {
                         if (!current) return current;
                         const seatedMe = {
                           userId: current.me.userId,
@@ -364,7 +371,10 @@ function TableRoom() {
                       });
                       setSeatTarget(null);
                       setBuyin("");
-                      await queryClient.invalidateQueries({ queryKey: ["mesa", codigo] });
+                      await queryClient.invalidateQueries({
+                        queryKey: ["mesa-live-v2", codigo],
+                        exact: true,
+                      });
                       toast.success(`Te sentaste en el asiento ${seatTarget + 1}`);
                     })
 
