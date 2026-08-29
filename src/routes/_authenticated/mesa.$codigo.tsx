@@ -317,6 +317,8 @@ function TableRoom() {
                       );
                       const delta = target - data.me.chips;
                       if (delta <= 0) throw new Error("Elige una cantidad mayor a tus fichas");
+                      // Si me levanté antes, mi lugar en la mesa ya no existe: vuelvo a entrar.
+                      if (!amAtTable) await join({ data: { code: codigo } });
                       const result = await buy({
                         data: { code: codigo, amount: delta, seat: seatTarget },
                       });
