@@ -76,6 +76,11 @@ function TableRoom() {
     queryKey: ["mesa", codigo],
     queryFn: () => snapshot({ data: { code: codigo } }),
     refetchInterval: 2000,
+    // La mesa es estado vivo: cada respuesta debe reemplazar el snapshot previo.
+    // Desactivar structural sharing evita conservar ramas antiguas de jugadores
+    // cuando otro cliente cambia de espectador a un asiento.
+    structuralSharing: false,
+    staleTime: 0,
     // La vista previa vive en un iframe que casi nunca tiene el foco: sin esto
     // el sondeo se pausa y la mesa se queda con datos viejos.
     refetchIntervalInBackground: true,
@@ -86,8 +91,8 @@ function TableRoom() {
 
   // Estable entre renders: si cambiara, el canal de realtime se resuscribiría siempre.
   const refetch = useCallback(() => {
-    void queryClient.refetchQueries({ queryKey: ["mesa", codigo] });
-  }, [queryClient, codigo]);
+    void query.refetch();
+  }, [query]);
 
   useTableRealtime(query.data?.table.id, refetch);
 
