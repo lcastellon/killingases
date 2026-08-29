@@ -4,9 +4,9 @@ import { cn } from "@/lib/utils";
 type Size = "sm" | "md" | "lg";
 
 const SIZES: Record<Size, string> = {
-  sm: "h-11 w-8 text-[0.7rem] rounded-[0.3rem]",
-  md: "h-16 w-11 text-sm rounded-md",
-  lg: "h-24 w-[4.25rem] text-lg rounded-lg",
+  sm: "h-8 w-6 text-[0.6rem] rounded-[0.25rem] sm:h-11 sm:w-8 sm:text-[0.7rem] sm:rounded-[0.3rem]",
+  md: "h-12 w-8 text-xs rounded sm:h-16 sm:w-11 sm:text-sm sm:rounded-md",
+  lg: "h-20 w-14 text-base rounded-md sm:h-24 sm:w-[4.25rem] sm:text-lg sm:rounded-lg",
 };
 
 export function PlayingCard({
@@ -48,7 +48,11 @@ export function PlayingCard({
       <span
         className={cn(
           "font-display leading-none",
-          size === "lg" ? "text-2xl" : size === "md" ? "text-lg" : "text-base",
+          size === "lg"
+            ? "text-xl sm:text-2xl"
+            : size === "md"
+              ? "text-base sm:text-lg"
+              : "text-xs sm:text-base",
           red ? "text-card-ink-red" : "text-card-ink",
         )}
       >

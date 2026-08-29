@@ -22,12 +22,12 @@ export function EmptySeat({
     >
       <div
         className={cn(
-          "flex items-center gap-2 rounded-full border border-dashed border-brass-soft/40 bg-felt-deep/60 py-1 pl-1 pr-3 backdrop-blur transition-all",
+          "flex items-center gap-1 rounded-full border border-dashed border-brass-soft/40 bg-felt-deep/60 py-0.5 pl-0.5 pr-2 backdrop-blur transition-all sm:gap-2 sm:py-1 sm:pl-1 sm:pr-3",
           interactive &&
             "group-hover:border-brass group-hover:bg-felt-deep/90 group-hover:shadow-[0_0_0_2px_var(--brass)]",
         )}
       >
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-dashed border-brass-soft/40 bg-felt/40 transition-colors group-hover:border-brass">
+        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-dashed border-brass-soft/40 bg-felt/40 transition-colors group-hover:border-brass sm:h-8 sm:w-8">
           <svg
             viewBox="0 0 24 24"
             aria-hidden="true"
@@ -45,7 +45,7 @@ export function EmptySeat({
         </span>
         <span
           className={cn(
-            "text-[0.65rem] uppercase tracking-widest text-muted-foreground transition-colors",
+            "text-[0.55rem] uppercase tracking-widest text-muted-foreground transition-colors sm:text-[0.65rem]",
             interactive && "group-hover:text-primary",
           )}
         >

@@ -21,7 +21,7 @@ export function SeatPill({
               size="sm"
               card={view.cards?.[i] ?? null}
               dimmed={view.folded}
-              className={i > 0 ? "-ml-4" : undefined}
+              className={i > 0 ? "-ml-3 sm:-ml-4" : undefined}
             />
           ))}
         </div>
@@ -29,7 +29,7 @@ export function SeatPill({
 
       <div
         className={cn(
-          "flex items-center gap-2 rounded-full border bg-felt-deep/95 py-1 pl-1 pr-3 shadow-chip backdrop-blur transition-all",
+          "flex items-center gap-1 rounded-full border bg-felt-deep/95 py-0.5 pl-0.5 pr-2 shadow-chip backdrop-blur transition-all sm:gap-2 sm:py-1 sm:pl-1 sm:pr-3",
           view.isTurn ? "border-brass shadow-[0_0_0_2px_var(--brass)]" : "border-brass-soft/40",
           view.folded && "opacity-45",
         )}
@@ -40,7 +40,7 @@ export function SeatPill({
           disabled={!view.isMe || !onAvatarClick}
           title={view.isMe ? "Cambiar tu avatar" : view.name}
           className={cn(
-            "grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border font-display text-sm",
+            "grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full border font-display text-[0.65rem] sm:h-9 sm:w-9 sm:text-sm",
             view.isMe
               ? "border-brass bg-brass/20 text-primary hover:brightness-110"
               : "border-brass-soft/50 bg-felt/70 text-foreground",
@@ -62,7 +62,7 @@ export function SeatPill({
               )}
               title={view.online === false ? "Sin conexión" : "Conectado"}
             />
-            <span className="max-w-[6.5rem] truncate text-xs font-semibold leading-tight">
+            <span className="max-w-[4.5rem] truncate text-[0.65rem] font-semibold leading-tight sm:max-w-[6.5rem] sm:text-xs">
               {view.name}
             </span>
             {view.isButton && (
@@ -74,7 +74,7 @@ export function SeatPill({
               </span>
             )}
           </div>
-          <span className="tabular font-display text-base leading-none text-primary">
+          <span className="tabular font-display text-xs leading-none text-primary sm:text-base">
             {view.chips.toLocaleString("es-MX")}
           </span>
         </div>
