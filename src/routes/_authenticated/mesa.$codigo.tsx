@@ -255,50 +255,52 @@ function TableRoom() {
 
   return (
     <main className="felt-surface min-h-screen pb-4">
-      <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-4 py-4">
-        <header className="flex items-center justify-between gap-3">
-          <Link to="/" className="font-display text-xl tracking-widest text-primary">
+      <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-2 py-2 sm:px-4 sm:py-4">
+        <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+          <Link
+            to="/"
+            className="truncate font-display text-sm tracking-widest text-primary sm:text-xl"
+          >
             Killing Ases Poker Club
           </Link>
-          <button
-            type="button"
-            onClick={() => {
-              void navigator.clipboard?.writeText(data.table.code);
-              toast.success("Código copiado");
-            }}
-            className="rounded-lg border border-brass-soft/50 bg-card px-3 py-1.5 text-sm"
-          >
-            Código <span className="font-display tracking-[0.2em] text-primary">{data.table.code}</span>
-          </button>
-        </header>
-
-        <div className="mt-2 flex justify-end">
-          <button
-            type="button"
-            onClick={() => setSettingsOpen(true)}
-            className="flex items-center gap-2 rounded-full border border-brass-soft/50 bg-card px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
-          >
-            <span className="grid h-6 w-6 place-items-center overflow-hidden rounded-full border border-brass bg-felt/60 font-display text-[0.6rem] text-primary">
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                void navigator.clipboard?.writeText(data.table.code);
+                toast.success("Código copiado");
+              }}
+              className="rounded-lg border border-brass-soft/50 bg-card px-2 py-1 text-[0.7rem] sm:px-3 sm:py-1.5 sm:text-sm"
+            >
+              <span className="font-display tracking-[0.2em] text-primary">
+                {data.table.code}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(true)}
+              aria-label="Mi perfil"
+              className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full border border-brass bg-felt/60 font-display text-[0.6rem] text-primary"
+            >
               {data.me.avatarUrl ? (
                 <img src={data.me.avatarUrl} alt="Tu avatar" className="h-full w-full object-cover" />
               ) : (
                 data.me.displayName.slice(0, 2).toUpperCase()
               )}
-            </span>
-            Mi perfil
-          </button>
-        </div>
+            </button>
+          </div>
+        </header>
 
-        <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-          <span>
-            Ciegas {data.table.smallBlind}/{data.table.bigBlind} · No Limit Omaha
+        <div className="mt-1.5 flex items-center justify-between gap-2 text-[0.7rem] text-muted-foreground sm:text-xs">
+          <span className="truncate">
+            {data.table.smallBlind}/{data.table.bigBlind} · No Limit Omaha
           </span>
           {hand ? (
-            <span>{`Mano #${hand.handNo} · ${STREET_LABEL[hand.street]}`}</span>
+            <span className="shrink-0">{`Mano #${hand.handNo} · ${STREET_LABEL[hand.street]}`}</span>
           ) : (
             <Link
               to="/"
-              className="rounded-lg border border-brass-soft/50 bg-card px-2.5 py-1 font-display tracking-wide text-primary transition-colors hover:bg-primary/10"
+              className="shrink-0 rounded-lg border border-brass-soft/50 bg-card px-2.5 py-1 font-display tracking-wide text-primary transition-colors hover:bg-primary/10"
             >
               Lobby
             </Link>
