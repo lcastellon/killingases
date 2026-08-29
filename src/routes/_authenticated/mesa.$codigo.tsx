@@ -203,6 +203,16 @@ function TableRoom() {
     handOver && data.players.length >= 2 && withChips.length <= 1 && (hand?.handNo ?? 0) > 0;
   const overallWinner = withChips[0] ?? null;
   const iAmBroke = data.me.chips < data.table.bigBlind;
+  const takenSeats = new Set(seatedPlayers.map((p) => p.seat as number));
+  const freeSeats = Array.from({ length: 8 }, (_, i) => i).filter((s) => !takenSeats.has(s));
+  const maxBuyinForMe = Math.min(data.table.maxBuyin, data.me.bankChips);
+  const canSitDown = !amSeated && freeSeats.length > 0 && maxBuyinForMe >= data.table.minBuyin;
+  const openSeatDialog = (seat: number) => {
+    setSeatTarget(seat);
+    setBuyin(
+      String(Math.min(maxBuyinForMe, Math.max(data.table.minBuyin, data.table.startingChips))),
+    );
+  };
 
 
 
