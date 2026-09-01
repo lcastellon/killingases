@@ -200,8 +200,8 @@ describe("pots, ties and all-ins", () => {
     expect(state.complete).toBe(true);
     expect(state.winners).toHaveLength(1);
     expect(state.winners[0]!.seat).toBe(2);
-    // 75 de bote menos 1 de comisión de la casa (2%)
-    expect(state.winners[0]!.amount).toBe(74);
+    // sin showdown la casa no cobra comisión
+    expect(state.winners[0]!.amount).toBe(75);
     expect(state.pot).toBe(0);
   });
 
