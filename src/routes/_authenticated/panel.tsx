@@ -4,7 +4,12 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { addPlayerToTable, getHostPanel, setPlayerChips } from "@/lib/poker/table.functions";
+import {
+  addPlayerToTable,
+  getHostPanel,
+  getHouseStats,
+  setPlayerChips,
+} from "@/lib/poker/table.functions";
 
 export const Route = createFileRoute("/_authenticated/panel")({
   head: () => ({
