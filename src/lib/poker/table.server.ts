@@ -754,3 +754,40 @@ export async function saveProfilePrefs(
       .eq("user_id", userId);
   }
 }
+
+export type RakeDay = { day: string; hands: number; rake: number; pot: number };
+
+/**
+ * Comisión de la casa agrupada por día (zona horaria de la Ciudad de México).
+ */
+export async function houseRakeStats(db: AdminClient, days = 14) {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await db
+    .from("house_rake")
+    .select("amount, pot, created_at")
+    .gte("created_at", since)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  const rows = data ?? [];
+
+  const byDay = new Map<string, RakeDay>();
+  for (const row of rows) {
+    const day = new Date(row.created_at).toLocaleDateString("en-CA", {
+      timeZone: "America/Mexico_City",
+    });
+    const entry = byDay.get(day) ?? { day, hands: 0, rake: 0, pot: 0 };
+    entry.hands += 1;
+    entry.rake += row.amount;
+    entry.pot += row.pot;
+    byDay.set(day, entry);
+  }
+
+  const daily = [...byDay.values()].sort((a, b) => (a.day < b.day ? 1 : -1));
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Mexico_City" });
+  return {
+    daily,
+    today: byDay.get(today) ?? { day: today, hands: 0, rake: 0, pot: 0 },
+    totalRake: daily.reduce((s, d) => s + d.rake, 0),
+    totalHands: daily.reduce((s, d) => s + d.hands, 0),
+  };
+}

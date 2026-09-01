@@ -462,3 +462,12 @@ export const updateMyProfile = createServerFn({ method: "POST" })
     await saveProfilePrefs(db, context.userId, patch);
     return await profilePrefs(db, context.userId);
   });
+
+export const getHouseStats = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    assertHostClaims(context.claims);
+    const { admin, houseRakeStats } = await import("./table.server");
+    const db = await admin();
+    return houseRakeStats(db);
+  });
