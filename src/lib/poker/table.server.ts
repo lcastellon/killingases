@@ -116,7 +116,38 @@ async function loadSecret(db: AdminClient, handId: string): Promise<HandState> {
   return data.state as unknown as HandState;
 }
 
-async function persistHand(db: AdminClient, handId: string, state: HandState) {
+/**
+ * Guarda la comisión de la casa una sola vez por mano (hand_id es único).
+ */
+async function recordRake(
+  db: AdminClient,
+  tableId: string,
+  handId: string,
+  state: HandState,
+) {
+  if (!state.complete) return;
+  const amount = state.rake ?? 0;
+  if (amount <= 0) return;
+  await db
+    .from("house_rake")
+    .upsert(
+      {
+        table_id: tableId,
+        hand_id: handId,
+        hand_no: state.handNo,
+        pot: amount + state.winners.reduce((sum, w) => sum + w.amount, 0),
+        amount,
+      },
+      { onConflict: "hand_id" },
+    );
+}
+
+async function persistHand(
+  db: AdminClient,
+  handId: string,
+  state: HandState,
+  tableId?: string,
+) {
   const publicState = sanitize(state) as unknown as Json;
   const { error } = await db
     .from("hands")
