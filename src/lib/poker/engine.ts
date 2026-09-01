@@ -63,6 +63,8 @@ export type HandState = {
   deck: Card[];
   hole: Record<string, Card[]>; // seat -> hole cards
   pot: number;
+  /** Chips kept by the house on this hand (rake). */
+  rake: number;
   currentSeat: number | null;
   currentBet: number;
   minRaise: number;
