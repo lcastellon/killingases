@@ -169,6 +169,7 @@ export function startHand(input: {
     deck,
     hole: {},
     pot: 0,
+    rake: 0,
     currentSeat: null,
     currentBet: 0,
     minRaise: input.bigBlind,
