@@ -445,15 +445,23 @@ function settle(state: HandState) {
 
   const winnersBySeat = new Map<number, Winner>();
   const payouts = new Map<number, number>();
+  // La comisión de la casa se descuenta del bote principal hacia arriba.
+  const totalRake = rakeFor(state.pot);
+  state.rake = totalRake;
+  let pendingRake = totalRake;
   let previous = 0;
   for (const level of levels) {
-    let amount = 0;
+    let gross = 0;
     for (const p of state.players) {
-      amount += Math.max(0, Math.min(p.committed, level) - previous);
+      gross += Math.max(0, Math.min(p.committed, level) - previous);
     }
     const eligible = contenders.filter((p) => p.committed >= level);
     previous = level;
+    const taken = Math.min(pendingRake, gross);
+    pendingRake -= taken;
+    const amount = gross - taken;
     if (amount === 0 || eligible.length === 0) continue;
+
 
     const bestScore = Math.max(...eligible.map((p) => evaluated.get(p.seat)!.score));
     const winners = eligible.filter((p) => evaluated.get(p.seat)!.score === bestScore);
