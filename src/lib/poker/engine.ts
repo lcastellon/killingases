@@ -120,6 +120,15 @@ function post(state: HandState, player: PlayerState, amount: number) {
   return paid;
 }
 
+/** Comisión de la casa: 2% del bote, con techo de 200 fichas por mano. */
+export const RAKE_PERCENT = 0.02;
+export const RAKE_CAP = 200;
+
+export function rakeFor(pot: number): number {
+  if (pot <= 0) return 0;
+  return Math.min(RAKE_CAP, Math.floor(pot * RAKE_PERCENT));
+}
+
 export function holeCardCount(rules: SpecialRules | undefined): number {
   const n = rules?.holeCards;
   return typeof n === "number" && n >= 2 && n <= 6 ? Math.floor(n) : 4;
