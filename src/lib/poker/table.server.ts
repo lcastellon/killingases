@@ -581,7 +581,7 @@ export async function performAction(
 
   // The turn clock is authoritative on the server: resolve expired turns first.
   if (settleTimeouts(state)) {
-    await persistHand(db, latest.id, state);
+    await persistHand(db, latest.id, state, table.id);
     await syncChips(db, table.id, state);
     if (state.complete) throw new Error("Se te acabó el tiempo y la mano avanzó");
   }
@@ -591,7 +591,7 @@ export async function performAction(
   if (state.currentSeat !== me.seat) throw new Error("No es tu turno");
 
   const next = applyAction(state, me.seat, action, amount);
-  await persistHand(db, latest.id, next);
+  await persistHand(db, latest.id, next, table.id);
   await syncChips(db, table.id, next);
   return { complete: next.complete };
 }
@@ -624,7 +624,7 @@ export async function enforceTurnTimer(db: AdminClient, table: TableRow) {
 
   const state = await loadSecret(db, latest.id);
   if (!settleTimeouts(state)) return false;
-  await persistHand(db, latest.id, state);
+  await persistHand(db, latest.id, state, table.id);
   await syncChips(db, table.id, state);
   return true;
 }
