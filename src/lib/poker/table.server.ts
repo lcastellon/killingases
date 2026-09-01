@@ -577,23 +577,26 @@ export async function performAction(
   const latest = await loadLatestHand(db, table.id);
   if (!latest) throw new Error("No hay mano en curso");
   const state = await loadSecret(db, latest.id);
-  if (state.complete) throw new Error("La mano ya terminó");
+  // Acción rezagada (doble clic, reconexión): ignorar en silencio.
+  if (state.complete) return { complete: true, ignored: true };
 
   // The turn clock is authoritative on the server: resolve expired turns first.
   if (settleTimeouts(state)) {
     await persistHand(db, latest.id, state, table.id);
     await syncChips(db, table.id, state);
-    if (state.complete) throw new Error("Se te acabó el tiempo y la mano avanzó");
+    if (state.complete) return { complete: true, ignored: true };
   }
 
   const me = state.players.find((p) => p.userId === userId);
   if (!me) throw new Error("No estás en esta mano");
-  if (state.currentSeat !== me.seat) throw new Error("No es tu turno");
+  // El turno ya pasó (timeout o acción duplicada): no romper la UI.
+  if (state.currentSeat !== me.seat) return { complete: state.complete, ignored: true };
 
   const next = applyAction(state, me.seat, action, amount);
   await persistHand(db, latest.id, next, table.id);
   await syncChips(db, table.id, next);
-  return { complete: next.complete };
+  return { complete: next.complete, ignored: false };
+
 }
 
 /**
