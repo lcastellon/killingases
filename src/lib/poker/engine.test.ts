@@ -199,7 +199,8 @@ describe("pots, ties and all-ins", () => {
     expect(state.complete).toBe(true);
     expect(state.winners).toHaveLength(1);
     expect(state.winners[0]!.seat).toBe(2);
-    expect(state.winners[0]!.amount).toBe(75);
+    // 75 de bote menos 1 de comisión de la casa (2%)
+    expect(state.winners[0]!.amount).toBe(74);
     expect(state.pot).toBe(0);
   });
 
@@ -225,8 +226,9 @@ describe("pots, ties and all-ins", () => {
     }
     expect(state.complete).toBe(true);
     expect(state.winners).toHaveLength(2);
-    expect(state.winners[0]!.amount).toBe(50);
-    expect(state.players.every((p) => p.chips === 1000)).toBe(true);
+    expect(state.winners[0]!.amount).toBe(49); // 100 de bote menos 2 de comisión
+    expect(state.rake).toBe(2);
+    expect(state.players.every((p) => p.chips === 999)).toBe(true);
   });
 
   it("builds a side pot the short stack cannot win", () => {
@@ -259,10 +261,11 @@ describe("pots, ties and all-ins", () => {
 
 
     const total = state.players.reduce((sum, p) => sum + p.chips, 0);
-    expect(total).toBe(2100); // chips are conserved
+    expect(state.rake).toBe(42); // 2% de 2100
+    expect(total).toBe(2100 - 42); // fichas conservadas menos la comisión
     expect(state.pot).toBe(0);
     const short = state.players.find((p) => p.seat === 0)!;
-    expect(short.chips).toBe(300); // main pot only (3 x 100)
+    expect(short.chips).toBe(258); // bote principal (3 x 100) menos la comisión
     expect(state.winners.some((w) => w.seat === 1)).toBe(true); // full house wins the side pot
   });
 
@@ -280,7 +283,8 @@ describe("pots, ties and all-ins", () => {
     expect(state.complete).toBe(true);
     expect(state.board).toHaveLength(5);
     expect(state.currentSeat).toBeNull();
-    expect(state.players.reduce((s, p) => s + p.chips, 0)).toBe(400);
+    expect(state.rake).toBe(8);
+    expect(state.players.reduce((s, p) => s + p.chips, 0)).toBe(392);
   });
 
   it("explains each showdown hand with the exact cards used", () => {
