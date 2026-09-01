@@ -159,7 +159,7 @@ async function persistHand(
     .update({ state: state as unknown as Json, updated_at: new Date().toISOString() })
     .eq("hand_id", handId);
   if (secretError) throw new Error(secretError.message);
-
+  if (tableId) await recordRake(db, tableId, handId, state);
 }
 
 async function syncChips(db: AdminClient, tableId: string, state: HandState) {
