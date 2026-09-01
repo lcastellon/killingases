@@ -107,6 +107,51 @@ export type Database = {
           },
         ]
       }
+      house_rake: {
+        Row: {
+          amount: number
+          created_at: string
+          hand_id: string
+          hand_no: number
+          id: string
+          pot: number
+          table_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          hand_id: string
+          hand_no: number
+          id?: string
+          pot?: number
+          table_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          hand_id?: string
+          hand_no?: number
+          id?: string
+          pot?: number
+          table_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "house_rake_hand_id_fkey"
+            columns: ["hand_id"]
+            isOneToOne: true
+            referencedRelation: "hands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "house_rake_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "poker_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       poker_tables: {
         Row: {
           big_blind: number

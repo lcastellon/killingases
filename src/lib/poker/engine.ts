@@ -63,6 +63,8 @@ export type HandState = {
   deck: Card[];
   hole: Record<string, Card[]>; // seat -> hole cards
   pot: number;
+  /** Chips kept by the house on this hand (rake). */
+  rake: number;
   currentSeat: number | null;
   currentBet: number;
   minRaise: number;
@@ -118,6 +120,15 @@ function post(state: HandState, player: PlayerState, amount: number) {
   return paid;
 }
 
+/** Comisión de la casa: 2% del bote, con techo de 200 fichas por mano. */
+export const RAKE_PERCENT = 0.02;
+export const RAKE_CAP = 200;
+
+export function rakeFor(pot: number): number {
+  if (pot <= 0) return 0;
+  return Math.min(RAKE_CAP, Math.floor(pot * RAKE_PERCENT));
+}
+
 export function holeCardCount(rules: SpecialRules | undefined): number {
   const n = rules?.holeCards;
   return typeof n === "number" && n >= 2 && n <= 6 ? Math.floor(n) : 4;
@@ -167,6 +178,7 @@ export function startHand(input: {
     deck,
     hole: {},
     pot: 0,
+    rake: 0,
     currentSeat: null,
     currentBet: 0,
     minRaise: input.bigBlind,
@@ -335,11 +347,15 @@ function advance(state: HandState, now: number = Date.now()) {
   const contenders = activeSeats(state);
   if (contenders.length === 1) {
     const winner = contenders[0]!;
-    winner.chips += state.pot;
-    state.winners = [{ seat: winner.seat, name: winner.name, amount: state.pot }];
-    state.log.push(
-      `${winner.name} gana ${state.pot.toLocaleString("es-MX")} sin showdown`,
-    );
+    const rake = rakeFor(state.pot);
+    state.rake = rake;
+    const net = state.pot - rake;
+    winner.chips += net;
+    state.winners = [{ seat: winner.seat, name: winner.name, amount: net }];
+    state.log.push(`${winner.name} gana ${net.toLocaleString("es-MX")} sin showdown`);
+    if (rake > 0) {
+      state.log.push(`La casa retiene ${rake.toLocaleString("es-MX")} de comisión (2%)`);
+    }
     state.pot = 0;
     setTurn(state, null, now);
     state.complete = true;
@@ -429,15 +445,23 @@ function settle(state: HandState) {
 
   const winnersBySeat = new Map<number, Winner>();
   const payouts = new Map<number, number>();
+  // La comisión de la casa se descuenta del bote principal hacia arriba.
+  const totalRake = rakeFor(state.pot);
+  state.rake = totalRake;
+  let pendingRake = totalRake;
   let previous = 0;
   for (const level of levels) {
-    let amount = 0;
+    let gross = 0;
     for (const p of state.players) {
-      amount += Math.max(0, Math.min(p.committed, level) - previous);
+      gross += Math.max(0, Math.min(p.committed, level) - previous);
     }
     const eligible = contenders.filter((p) => p.committed >= level);
     previous = level;
+    const taken = Math.min(pendingRake, gross);
+    pendingRake -= taken;
+    const amount = gross - taken;
     if (amount === 0 || eligible.length === 0) continue;
+
 
     const bestScore = Math.max(...eligible.map((p) => evaluated.get(p.seat)!.score));
     const winners = eligible.filter((p) => evaluated.get(p.seat)!.score === bestScore);
@@ -489,6 +513,9 @@ function settle(state: HandState) {
     state.log.push(
       `${w.name} gana ${w.amount.toLocaleString("es-MX")} con ${w.handName ?? "la mano"}`,
     );
+  }
+  if (totalRake > 0) {
+    state.log.push(`La casa retiene ${totalRake.toLocaleString("es-MX")} de comisión (2%)`);
   }
   state.pot = 0;
   setTurn(state, null);

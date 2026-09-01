@@ -116,7 +116,38 @@ async function loadSecret(db: AdminClient, handId: string): Promise<HandState> {
   return data.state as unknown as HandState;
 }
 
-async function persistHand(db: AdminClient, handId: string, state: HandState) {
+/**
+ * Guarda la comisión de la casa una sola vez por mano (hand_id es único).
+ */
+async function recordRake(
+  db: AdminClient,
+  tableId: string,
+  handId: string,
+  state: HandState,
+) {
+  if (!state.complete) return;
+  const amount = state.rake ?? 0;
+  if (amount <= 0) return;
+  await db
+    .from("house_rake")
+    .upsert(
+      {
+        table_id: tableId,
+        hand_id: handId,
+        hand_no: state.handNo,
+        pot: amount + state.winners.reduce((sum, w) => sum + w.amount, 0),
+        amount,
+      },
+      { onConflict: "hand_id" },
+    );
+}
+
+async function persistHand(
+  db: AdminClient,
+  handId: string,
+  state: HandState,
+  tableId?: string,
+) {
   const publicState = sanitize(state) as unknown as Json;
   const { error } = await db
     .from("hands")
@@ -128,7 +159,7 @@ async function persistHand(db: AdminClient, handId: string, state: HandState) {
     .update({ state: state as unknown as Json, updated_at: new Date().toISOString() })
     .eq("hand_id", handId);
   if (secretError) throw new Error(secretError.message);
-
+  if (tableId) await recordRake(db, tableId, handId, state);
 }
 
 async function syncChips(db: AdminClient, tableId: string, state: HandState) {
@@ -550,7 +581,7 @@ export async function performAction(
 
   // The turn clock is authoritative on the server: resolve expired turns first.
   if (settleTimeouts(state)) {
-    await persistHand(db, latest.id, state);
+    await persistHand(db, latest.id, state, table.id);
     await syncChips(db, table.id, state);
     if (state.complete) throw new Error("Se te acabó el tiempo y la mano avanzó");
   }
@@ -560,7 +591,7 @@ export async function performAction(
   if (state.currentSeat !== me.seat) throw new Error("No es tu turno");
 
   const next = applyAction(state, me.seat, action, amount);
-  await persistHand(db, latest.id, next);
+  await persistHand(db, latest.id, next, table.id);
   await syncChips(db, table.id, next);
   return { complete: next.complete };
 }
@@ -593,7 +624,7 @@ export async function enforceTurnTimer(db: AdminClient, table: TableRow) {
 
   const state = await loadSecret(db, latest.id);
   if (!settleTimeouts(state)) return false;
-  await persistHand(db, latest.id, state);
+  await persistHand(db, latest.id, state, table.id);
   await syncChips(db, table.id, state);
   return true;
 }
@@ -722,4 +753,41 @@ export async function saveProfilePrefs(
       .update({ display_name: patch.displayName })
       .eq("user_id", userId);
   }
+}
+
+export type RakeDay = { day: string; hands: number; rake: number; pot: number };
+
+/**
+ * Comisión de la casa agrupada por día (zona horaria de la Ciudad de México).
+ */
+export async function houseRakeStats(db: AdminClient, days = 14) {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await db
+    .from("house_rake")
+    .select("amount, pot, created_at")
+    .gte("created_at", since)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  const rows = data ?? [];
+
+  const byDay = new Map<string, RakeDay>();
+  for (const row of rows) {
+    const day = new Date(row.created_at).toLocaleDateString("en-CA", {
+      timeZone: "America/Mexico_City",
+    });
+    const entry = byDay.get(day) ?? { day, hands: 0, rake: 0, pot: 0 };
+    entry.hands += 1;
+    entry.rake += row.amount;
+    entry.pot += row.pot;
+    byDay.set(day, entry);
+  }
+
+  const daily = [...byDay.values()].sort((a, b) => (a.day < b.day ? 1 : -1));
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Mexico_City" });
+  return {
+    daily,
+    today: byDay.get(today) ?? { day: today, hands: 0, rake: 0, pot: 0 },
+    totalRake: daily.reduce((s, d) => s + d.rake, 0),
+    totalHands: daily.reduce((s, d) => s + d.hands, 0),
+  };
 }
