@@ -88,7 +88,7 @@ export const createTable = createServerFn({ method: "POST" })
       .from("poker_tables")
       .insert({
         code,
-        name: data.name?.trim() || "Mesa Mata Ases",
+        name: data.name?.trim() || "Mesa No Limit Omaha",
         host_id: context.userId,
         small_blind: smallBlind,
         big_blind: bigBlind,
