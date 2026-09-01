@@ -347,11 +347,15 @@ function advance(state: HandState, now: number = Date.now()) {
   const contenders = activeSeats(state);
   if (contenders.length === 1) {
     const winner = contenders[0]!;
-    winner.chips += state.pot;
-    state.winners = [{ seat: winner.seat, name: winner.name, amount: state.pot }];
-    state.log.push(
-      `${winner.name} gana ${state.pot.toLocaleString("es-MX")} sin showdown`,
-    );
+    const rake = rakeFor(state.pot);
+    state.rake = rake;
+    const net = state.pot - rake;
+    winner.chips += net;
+    state.winners = [{ seat: winner.seat, name: winner.name, amount: net }];
+    state.log.push(`${winner.name} gana ${net.toLocaleString("es-MX")} sin showdown`);
+    if (rake > 0) {
+      state.log.push(`La casa retiene ${rake.toLocaleString("es-MX")} de comisión (2%)`);
+    }
     state.pot = 0;
     setTurn(state, null, now);
     state.complete = true;
