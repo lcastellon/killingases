@@ -200,8 +200,8 @@ describe("pots, ties and all-ins", () => {
     expect(state.complete).toBe(true);
     expect(state.winners).toHaveLength(1);
     expect(state.winners[0]!.seat).toBe(2);
-    // 75 de bote menos 1 de comisión de la casa (2%)
-    expect(state.winners[0]!.amount).toBe(74);
+    // sin showdown la casa no cobra comisión
+    expect(state.winners[0]!.amount).toBe(75);
     expect(state.pot).toBe(0);
   });
 
@@ -336,11 +336,12 @@ describe("reconnection safety", () => {
 });
 
 describe("comisión de la casa", () => {
-  it("cobra 2% del bote con techo de 200 por mano", () => {
-    expect(rakeFor(0)).toBe(0);
-    expect(rakeFor(100)).toBe(2);
-    expect(rakeFor(999)).toBe(19);
-    expect(rakeFor(10_000)).toBe(200);
-    expect(rakeFor(1_000_000)).toBe(200);
+  it("cobra 2% del bote con techo de 4 ciegas grandes por mano", () => {
+    expect(rakeFor(0, 50)).toBe(0);
+    expect(rakeFor(100, 50)).toBe(2);
+    expect(rakeFor(999, 50)).toBe(19);
+    expect(rakeFor(10_000, 50)).toBe(200);
+    expect(rakeFor(1_000_000, 50)).toBe(200);
+    expect(rakeFor(1_000_000, 50, false)).toBe(0);
   });
 });
