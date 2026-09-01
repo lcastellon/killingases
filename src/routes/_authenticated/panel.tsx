@@ -60,6 +60,13 @@ function HostPanel() {
     refetchInterval: 5000,
   });
 
+  const houseStats = useServerFn(getHouseStats);
+  const stats = useQuery({
+    queryKey: ["house-stats"],
+    queryFn: () => houseStats({}),
+    refetchInterval: 15000,
+  });
+
   const data = query.data;
   const tables = data?.tables ?? [];
 
