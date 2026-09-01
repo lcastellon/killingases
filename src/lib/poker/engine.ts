@@ -514,6 +514,9 @@ function settle(state: HandState) {
       `${w.name} gana ${w.amount.toLocaleString("es-MX")} con ${w.handName ?? "la mano"}`,
     );
   }
+  if (totalRake > 0) {
+    state.log.push(`La casa retiene ${totalRake.toLocaleString("es-MX")} de comisión (2%)`);
+  }
   state.pot = 0;
   setTurn(state, null);
   state.street = "showdown";
