@@ -336,11 +336,12 @@ describe("reconnection safety", () => {
 });
 
 describe("comisión de la casa", () => {
-  it("cobra 2% del bote con techo de 200 por mano", () => {
-    expect(rakeFor(0)).toBe(0);
-    expect(rakeFor(100)).toBe(2);
-    expect(rakeFor(999)).toBe(19);
-    expect(rakeFor(10_000)).toBe(200);
-    expect(rakeFor(1_000_000)).toBe(200);
+  it("cobra 2% del bote con techo de 4 ciegas grandes por mano", () => {
+    expect(rakeFor(0, 50)).toBe(0);
+    expect(rakeFor(100, 50)).toBe(2);
+    expect(rakeFor(999, 50)).toBe(19);
+    expect(rakeFor(10_000, 50)).toBe(200);
+    expect(rakeFor(1_000_000, 50)).toBe(200);
+    expect(rakeFor(1_000_000, 50, false)).toBe(0);
   });
 });
