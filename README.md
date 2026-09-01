@@ -1,14 +1,18 @@
-# Welcome to your Lovable project
+# Killing Ases Poker Club
+
+Ok, quiero crear una App de un juego de poker llamado Mata Ases para compartir con amigos. Puedes empezar con una versión de omaha?
 
 This project was built with [Lovable](https://lovable.dev).
 
+**Live app**: https://killingases.lovable.app
+
 ## Build with Lovable
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
+Continue developing this project in the [Lovable editor](https://lovable.dev/projects/a2203cff-41f6-46f7-aaf3-c5e1a4d8cd99).
 
 - **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
+- **Stay in sync**: every change made in Lovable is committed straight to this repository.
+- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
 
 ## Development
 
@@ -20,10 +24,3 @@ cd <repository-name>
 npm i
 npm run dev
 ```
-
-## Built with
-
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS
