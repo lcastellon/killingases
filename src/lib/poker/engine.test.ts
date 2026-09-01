@@ -5,6 +5,7 @@ import {
   applyAction,
   autoActOnTimeout,
   legalActions,
+  rakeFor,
   sanitize,
   startHand,
   type HandState,
@@ -331,5 +332,15 @@ describe("reconnection safety", () => {
     expect(restored.turnEndsAt).toBe(state.turnEndsAt);
     expect(restored.players).toHaveLength(3);
     expect(restored.players[0].chips).toBe(state.players[0]!.chips);
+  });
+});
+
+describe("comisión de la casa", () => {
+  it("cobra 2% del bote con techo de 200 por mano", () => {
+    expect(rakeFor(0)).toBe(0);
+    expect(rakeFor(100)).toBe(2);
+    expect(rakeFor(999)).toBe(19);
+    expect(rakeFor(10_000)).toBe(200);
+    expect(rakeFor(1_000_000)).toBe(200);
   });
 });
