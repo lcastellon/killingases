@@ -122,11 +122,11 @@ function post(state: HandState, player: PlayerState, amount: number) {
 
 /** Comisión de la casa: 2% del bote, con techo de 200 fichas por mano. */
 export const RAKE_PERCENT = 0.02;
-export const RAKE_CAP = 200;
+export const RAKE_CAP_BIG_BLINDS = 4;
 
-export function rakeFor(pot: number): number {
-  if (pot <= 0) return 0;
-  return Math.min(RAKE_CAP, Math.floor(pot * RAKE_PERCENT));
+export function rakeFor(pot: number, bigBlind: number, chargeRake = true): number {
+  if (!chargeRake || pot <= 0 || bigBlind <= 0) return 0;
+  return Math.min(bigBlind * RAKE_CAP_BIG_BLINDS, Math.floor(pot * RAKE_PERCENT));
 }
 
 export function holeCardCount(rules: SpecialRules | undefined): number {
@@ -170,8 +170,7 @@ export function startHand(input: {
     bigBlind: input.bigBlind,
     variant: input.variant ?? "omaha",
     specialRules,
-    turnSeconds:
-      input.turnSeconds && input.turnSeconds > 0 ? Math.floor(input.turnSeconds) : DEFAULT_TURN_SECONDS,
+    turnSeconds: input.turnSeconds && input.turnSeconds > 0 ? Math.floor(input.turnSeconds) : DEFAULT_TURN_SECONDS,
     turnEndsAt: null,
     street: "preflop",
     board: [],
@@ -292,9 +291,7 @@ export function applyAction(
       for (const other of state.players) {
         if (other.seat !== p.seat && canAct(other)) other.hasActed = false;
       }
-      state.log.push(
-        previousBet === 0 ? `${p.name} apuesta ${p.bet}` : `${p.name} sube a ${p.bet} (+${paid})`,
-      );
+      state.log.push(previousBet === 0 ? `${p.name} apuesta ${p.bet}` : `${p.name} sube a ${p.bet} (+${paid})`);
     } else {
       state.log.push(`${p.name} va all-in con ${paid}`);
     }
@@ -347,7 +344,7 @@ function advance(state: HandState, now: number = Date.now()) {
   const contenders = activeSeats(state);
   if (contenders.length === 1) {
     const winner = contenders[0]!;
-    const rake = rakeFor(state.pot);
+    const rake = rakeFor(state.pot, state.bigBlind, state.street !== "preflop");
     state.rake = rake;
     const net = state.pot - rake;
     winner.chips += net;
@@ -439,14 +436,12 @@ function settle(state: HandState) {
     evaluated.set(p.seat, evaluateOmaha(state.hole[String(p.seat)] ?? [], state.board));
   }
 
-  const levels = [...new Set(state.players.map((p) => p.committed).filter((c) => c > 0))].sort(
-    (a, b) => a - b,
-  );
+  const levels = [...new Set(state.players.map((p) => p.committed).filter((c) => c > 0))].sort((a, b) => a - b);
 
   const winnersBySeat = new Map<number, Winner>();
   const payouts = new Map<number, number>();
   // La comisión de la casa se descuenta del bote principal hacia arriba.
-  const totalRake = rakeFor(state.pot);
+  const totalRake = rakeFor(state.pot, state.bigBlind, state.board.length >= 3);
   state.rake = totalRake;
   let pendingRake = totalRake;
   let previous = 0;
@@ -461,7 +456,6 @@ function settle(state: HandState) {
     pendingRake -= taken;
     const amount = gross - taken;
     if (amount === 0 || eligible.length === 0) continue;
-
 
     const bestScore = Math.max(...eligible.map((p) => evaluated.get(p.seat)!.score));
     const winners = eligible.filter((p) => evaluated.get(p.seat)!.score === bestScore);
@@ -510,9 +504,7 @@ function settle(state: HandState) {
 
   state.winners = [...winnersBySeat.values()].sort((a, b) => b.amount - a.amount);
   for (const w of state.winners) {
-    state.log.push(
-      `${w.name} gana ${w.amount.toLocaleString("es-MX")} con ${w.handName ?? "la mano"}`,
-    );
+    state.log.push(`${w.name} gana ${w.amount.toLocaleString("es-MX")} con ${w.handName ?? "la mano"}`);
   }
   if (totalRake > 0) {
     state.log.push(`La casa retiene ${totalRake.toLocaleString("es-MX")} de comisión (2%)`);
