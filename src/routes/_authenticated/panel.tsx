@@ -118,6 +118,67 @@ function HostPanel() {
           </span>
         </header>
 
+        <section className="mt-6 rounded-2xl border border-brass-soft/40 bg-card/85 p-4">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="text-lg text-foreground">Comisión de la casa</h2>
+            <span className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+              2% del bote · máx. 200 por mano
+            </span>
+          </div>
+
+          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-xl bg-background/60 p-2">
+              <p className="tabular font-display text-xl text-primary">
+                {(stats.data?.today.rake ?? 0).toLocaleString("es-MX")}
+              </p>
+              <p className="text-[0.6rem] uppercase tracking-widest text-muted-foreground">Hoy</p>
+            </div>
+            <div className="rounded-xl bg-background/60 p-2">
+              <p className="tabular font-display text-xl text-foreground">
+                {(stats.data?.today.hands ?? 0).toLocaleString("es-MX")}
+              </p>
+              <p className="text-[0.6rem] uppercase tracking-widest text-muted-foreground">
+                Manos hoy
+              </p>
+            </div>
+            <div className="rounded-xl bg-background/60 p-2">
+              <p className="tabular font-display text-xl text-foreground">
+                {(stats.data?.totalRake ?? 0).toLocaleString("es-MX")}
+              </p>
+              <p className="text-[0.6rem] uppercase tracking-widest text-muted-foreground">
+                14 días
+              </p>
+            </div>
+          </div>
+
+          <ul className="mt-3 space-y-1">
+            {(stats.data?.daily ?? []).map((d) => (
+              <li
+                key={d.day}
+                className="flex items-baseline justify-between gap-2 border-t border-brass-soft/20 pt-1 text-sm"
+              >
+                <span className="text-muted-foreground">
+                  {new Date(`${d.day}T12:00:00Z`).toLocaleDateString("es-MX", {
+                    day: "2-digit",
+                    month: "short",
+                  })}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {d.hands} manos · botes {d.pot.toLocaleString("es-MX")}
+                </span>
+                <span className="tabular font-semibold text-primary">
+                  {d.rake.toLocaleString("es-MX")}
+                </span>
+              </li>
+            ))}
+            {stats.data && stats.data.daily.length === 0 && (
+              <li className="pt-2 text-sm text-muted-foreground">
+                Todavía no hay manos con comisión registrada.
+              </li>
+            )}
+          </ul>
+        </section>
+
         <h1 className="mt-6 text-3xl text-foreground">Jugadores del club</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Cada jugador tiene un banco global del club. Aquí le agregas o retiras fichas de ese
