@@ -242,41 +242,6 @@ export type Database = {
         }
         Relationships: []
       }
-      table_messages: {
-        Row: {
-          body: string
-          created_at: string
-          display_name: string
-          id: string
-          table_id: string
-          user_id: string
-        }
-        Insert: {
-          body: string
-          created_at?: string
-          display_name: string
-          id?: string
-          table_id: string
-          user_id: string
-        }
-        Update: {
-          body?: string
-          created_at?: string
-          display_name?: string
-          id?: string
-          table_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "table_messages_table_id_fkey"
-            columns: ["table_id"]
-            isOneToOne: false
-            referencedRelation: "poker_tables"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       table_players: {
         Row: {
           chips: number
