@@ -8,7 +8,6 @@ import {
   act,
   autoDealHand,
   buyInTable,
-  dealHand,
   getTableSnapshot,
   leaveTable,
   rebuyTable,
@@ -57,7 +56,6 @@ function TableRoom() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const snapshot = useServerFn(getTableSnapshot);
-  const deal = useServerFn(dealHand);
   const sendAction = useServerFn(act);
   const leave = useServerFn(leaveTable);
   const buy = useServerFn(buyInTable);
@@ -214,7 +212,6 @@ function TableRoom() {
   const amSeated = data.me.seat !== null;
   const amAtTable = data.players.some((p) => p.userId === data.me.userId);
   const seatedPlayers = data.players.filter((p) => p.seat !== null);
-  const seatedCount = seatedPlayers.length;
   const handOver = !hand || hand.complete;
   const eligiblePlayers = seatedPlayers.filter((p) => p.chips >= data.table.minBuyin);
   const brokePlayers = seatedPlayers.filter((p) => p.chips < data.table.minBuyin);
@@ -222,7 +219,6 @@ function TableRoom() {
     data.table.maxBuyin,
     Math.max(data.table.minBuyin, data.table.startingChips),
   );
-  const canDeal = data.me.isHost && handOver && eligiblePlayers.length >= 2;
   const waitingForPlayers = handOver && eligiblePlayers.length < 2 && (hand?.handNo ?? 0) > 0;
   const iAmBroke = data.me.chips < data.table.minBuyin;
   const takenSeats = new Set(seatedPlayers.map((p) => p.seat as number));
@@ -575,33 +571,26 @@ function TableRoom() {
             </div>
           )}
 
-          {data.me.isHost && handOver && seatedCount >= 2 && (
-            <div className="space-y-2">
+          {handOver && eligiblePlayers.length >= 2 && (
+            <p className="rounded-xl border border-brass-soft/40 bg-card/70 py-3 text-center text-xs text-muted-foreground">
+              {hand ? "Preparando la siguiente mano…" : "Preparando la primera mano…"}
+            </p>
+          )}
+
+          {data.me.isHost && handOver && brokePlayers.length > 0 && (
+            <div className="rounded-xl border border-chip-red/50 bg-card/70 p-3 text-center">
+              <p className="text-sm text-foreground">
+                {brokePlayers.map((p) => p.displayName).join(", ")}{" "}
+                {brokePlayers.length > 1 ? "no tienen" : "no tiene"} fichas suficientes
+              </p>
               <button
                 type="button"
-                disabled={busy || !canDeal}
-                onClick={() => void run(() => deal({ data: { code: codigo } }))}
-                className="w-full rounded-xl bg-primary py-3 font-display text-lg tracking-wide text-primary-foreground disabled:opacity-50"
+                disabled={busy}
+                onClick={() => void run(() => resetChips({ data: { code: codigo } }))}
+                className="mt-2 w-full rounded-xl border border-brass bg-felt-deep/60 py-2 font-display tracking-wide text-primary disabled:opacity-50"
               >
-                {hand ? "Repartir siguiente mano" : "Repartir primera mano"}
+                Recargar fichas a todos ({rebuyTarget.toLocaleString("es-MX")})
               </button>
-
-              {brokePlayers.length > 0 && (
-                <div className="rounded-xl border border-chip-red/50 bg-card/70 p-3 text-center">
-                  <p className="text-sm text-foreground">
-                    {brokePlayers.map((p) => p.displayName).join(", ")}{" "}
-                    {brokePlayers.length > 1 ? "no tienen" : "no tiene"} fichas suficientes
-                  </p>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void run(() => resetChips({ data: { code: codigo } }))}
-                    className="mt-2 w-full rounded-xl border border-brass bg-felt-deep/60 py-2 font-display tracking-wide text-primary disabled:opacity-50"
-                  >
-                    Recargar fichas a todos ({rebuyTarget.toLocaleString("es-MX")})
-                  </button>
-                </div>
-              )}
             </div>
           )}
 
@@ -614,12 +603,6 @@ function TableRoom() {
             >
               Volver con {rebuyTarget.toLocaleString("es-MX")}
             </button>
-          )}
-
-          {!data.me.isHost && handOver && amSeated && !iAmBroke && eligiblePlayers.length >= 2 && (
-            <p className="text-center text-xs text-muted-foreground">
-              El anfitrión reparte la siguiente mano.
-            </p>
           )}
         </section>
 
