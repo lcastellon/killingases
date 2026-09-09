@@ -1,31 +1,31 @@
-# Revisión de imparcialidad del reparto
+# Aplicar migración de chat de mesa
 
-## Qué encontré al revisar las 4 manos de anoche
+## Objetivo
+Ejecutar la migración existente `supabase/migrations/20260909060000_table_chat.sql` en Lovable Cloud para crear o actualizar la tabla `public.table_messages` con las reglas de seguridad y realtime necesarias para el chat de mesa.
 
-Revisé las cartas guardadas de cada mano y volví a comprobar el resultado a mano:
+## Qué hace la migración
 
-- Mano 1: León trío de jotas vs. doble par de Phil — correcto.
-- Mano 2: León escalera al as vs. doble par de Phil — correcto.
-- Mano 3: León trío de reyes vs. par de reyes de Phil — correcto.
-- Mano 4: León color al reina vs. par de ochos de Phil — correcto.
+- Crea la tabla `public.table_messages` si no existe, con los campos:
+  - `id`, `table_id`, `user_id`, `display_name`, `body`, `created_at`
+  - Restricción de longitud del mensaje (1 a 280 caracteres)
+- Crea un índice por `table_id` y `created_at DESC`.
+- Habilita Row Level Security (RLS) sobre la tabla.
+- Otorga permisos mínimos:
+  - Solo lectura (`SELECT`) a usuarios autenticados.
+  - Todo (`ALL`) a `service_role`.
+  - Revoca `INSERT`, `UPDATE`, `DELETE` directos a `authenticated` y `anon`.
+- Crea una política para que solo los miembros de la mesa puedan leer mensajes.
+- Configura `REPLICA IDENTITY FULL` y añade la tabla a la publicación realtime `supabase_realtime`.
+- Crea un trigger `AFTER INSERT` que actualiza la actividad de la mesa usando `public.touch_poker_table_activity()`.
 
-En las cuatro, el ganador que anunció el juego es realmente el que tenía la mejor mano, usando 2 cartas propias + 3 de la mesa. No hay ninguna regla que favorezca a un jugador ni al anfitrión: las cartas se mezclan de nuevo en cada mano y se reparten en orden desde una baraja ya revuelta.
+## Criterio de éxito
 
-También hay manos anteriores (26 y 29 de agosto) donde ganó Phil, así que el patrón de anoche es una racha de 4 manos, no un sesgo. Cuatro manos son muy pocas para notar nada: la probabilidad de que un jugador gane 4 seguidas entre dos jugadores es de aproximadamente 1 en 16.
+- La tabla `public.table_messages` existe en la base de datos.
+- RLS está activo, la política `table_messages_select_members` está presente.
+- Los permisos reflejan solo lectura para jugadores autenticados y todo para el sistema.
+- `supabase_realtime` publica cambios de `table_messages`.
+- El frontend actual (`TableChat.tsx` y `chat.functions.ts`) sigue funcionando tras la migración.
 
-## Qué propongo hacer de todos modos
+## Alcance
 
-Para que nadie tenga dudas, tres mejoras concretas:
-
-1. **Mezcla criptográfica.** Cambiar el generador de azar del reparto por el generador seguro del sistema (el mismo tipo que se usa en casinos en línea), en lugar del azar básico del lenguaje.
-2. **Prueba de imparcialidad automática.** Añadir una prueba que reparta cientos de miles de manos simuladas y verifique que cada asiento gana casi exactamente la misma proporción, y que cada carta llega a cada posición con igual frecuencia. Si algún día se cuela un sesgo, la prueba falla.
-3. **Transparencia de la mano.** Al terminar cada mano, el resumen ya muestra las cartas exactas; añadir además la lista completa de las cartas de todos los jugadores que llegaron al showdown, ordenada de mejor a peor, para que cualquiera pueda comprobar el resultado en el momento.
-
-## Detalles técnicos
-
-- `shuffle()` en `src/lib/poker/cards.ts` mantiene su firma con generador inyectable (los tests siguen usando uno determinista), pero el motor pasará un generador basado en `crypto.getRandomValues` con muestreo sin sesgo por rechazo (evita el sesgo de módulo).
-- `startHand()` en `src/lib/poker/engine.ts` usa ese generador por defecto; sin cambios de estado ni de base de datos.
-- Nuevas pruebas en `src/lib/poker/engine.test.ts`: distribución de posición de cartas y reparto de victorias en simulación masiva con tolerancia estadística.
-- El listado ampliado del showdown es solo presentación en `src/components/poker/Showdown.tsx`, con datos que el servidor ya envía.
-
-Sin migraciones de base de datos.
+Solo base de datos. No se modificará frontend, server functions ni se generará otra migración duplicada.
