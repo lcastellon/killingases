@@ -321,6 +321,44 @@ export type Database = {
           },
         ]
       }
+      table_reactions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          reaction: string
+          seat: number
+          table_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          reaction: string
+          seat: number
+          table_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          reaction?: string
+          seat?: number
+          table_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_reactions_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "poker_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
