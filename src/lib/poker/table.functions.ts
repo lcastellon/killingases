@@ -48,7 +48,6 @@ export type TableSnapshot = {
   serverNow: string;
 };
 
-
 export const createTable = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
@@ -120,16 +119,20 @@ export const createTable = createServerFn({ method: "POST" })
 export const joinTable = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { code: string; tableId?: string | null }) => ({
-    code: String(input.code ?? "").trim().toUpperCase(),
+    code: String(input.code ?? "")
+      .trim()
+      .toUpperCase(),
     tableId: input.tableId ? String(input.tableId) : null,
   }))
   .handler(async ({ data, context }) => {
-    const { admin, getTableByCode, getPlayers, displayNameFor } = await import("./table.server");
+    const { admin, getTableByCode, getPlayers, displayNameFor, touchTableActivity } =
+      await import("./table.server");
     const db = await admin();
     const table = await getTableByCode(db, data.code);
     if (data.tableId && table.id !== data.tableId)
       throw new Error("Ese código no corresponde a la mesa seleccionada");
-    if (table.status === "closed") throw new Error("Esa mesa ya fue cerrada por el anfitrión");
+    if (table.status === "closed") throw new Error("Esta mesa ya está cerrada");
+    await touchTableActivity(db, table.id);
     const players = await getPlayers(db, table.id);
     const mine = players.find((p) => p.user_id === context.userId);
     if (mine) return { code: table.code };
@@ -150,7 +153,9 @@ export const joinTable = createServerFn({ method: "POST" })
 export const buyInTable = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { code: string; amount: number; seat?: number | null }) => ({
-    code: String(input.code ?? "").trim().toUpperCase(),
+    code: String(input.code ?? "")
+      .trim()
+      .toUpperCase(),
     amount: Math.trunc(Number(input.amount ?? 0)),
     seat: input.seat === undefined || input.seat === null ? null : Math.trunc(Number(input.seat)),
   }))
@@ -161,11 +166,12 @@ export const buyInTable = createServerFn({ method: "POST" })
     return buyIn(db, table, context.userId, data.amount, data.seat);
   });
 
-
 export const rebuyTable = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { code: string }) => ({
-    code: String(input.code ?? "").trim().toUpperCase(),
+    code: String(input.code ?? "")
+      .trim()
+      .toUpperCase(),
   }))
   .handler(async ({ data, context }) => {
     const { admin, getTableByCode, rebuyChips } = await import("./table.server");
@@ -177,7 +183,9 @@ export const rebuyTable = createServerFn({ method: "POST" })
 export const resetTable = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { code: string }) => ({
-    code: String(input.code ?? "").trim().toUpperCase(),
+    code: String(input.code ?? "")
+      .trim()
+      .toUpperCase(),
   }))
   .handler(async ({ data, context }) => {
     assertHostClaims(context.claims);
@@ -188,7 +196,6 @@ export const resetTable = createServerFn({ method: "POST" })
   });
 
 export const listMyTables = createServerFn({ method: "POST" })
-
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     if (!isHostEmail(context.claims.email as string | undefined)) return [];
@@ -208,20 +215,30 @@ export const listOpenTables = createServerFn({ method: "POST" })
 
 export const closeTable = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { code: string }) => ({ code: String(input.code ?? "").trim().toUpperCase() }))
+  .inputValidator((input: { code: string }) => ({
+    code: String(input.code ?? "")
+      .trim()
+      .toUpperCase(),
+  }))
   .handler(async ({ data, context }) => {
     assertHostClaims(context.claims);
     const { admin, getTableByCode, cashOutTable } = await import("./table.server");
     const db = await admin();
     const table = await getTableByCode(db, data.code);
     if (table.host_id !== context.userId) throw new Error("Esa mesa no es tuya");
-    // Las fichas que quedaron en la mesa vuelven al banco de cada jugador.
-    await cashOutTable(db, table);
-    const { error } = await db
+    // Reclamar el cierre primero evita que el proceso automático y el manual
+    // devuelvan las mismas fichas dos veces.
+    const { data: claimed, error } = await db
       .from("poker_tables")
       .update({ status: "closed", updated_at: new Date().toISOString() })
-      .eq("id", table.id);
+      .eq("id", table.id)
+      .neq("status", "closed")
+      .select("id")
+      .maybeSingle();
     if (error) throw new Error(error.message);
+    if (!claimed) return { ok: true };
+    // Las fichas que quedaron en la mesa vuelven al banco de cada jugador.
+    await cashOutTable(db, table);
     return { ok: true };
   });
 
@@ -242,7 +259,11 @@ export const setPlayerChips = createServerFn({ method: "POST" })
 /** El jugador se levanta: sus fichas de la mesa vuelven al banco del club. */
 export const cashOutTableFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { code: string }) => ({ code: String(input.code ?? "").trim().toUpperCase() }))
+  .inputValidator((input: { code: string }) => ({
+    code: String(input.code ?? "")
+      .trim()
+      .toUpperCase(),
+  }))
   .handler(async ({ data, context }) => {
     const { admin, getTableByCode, cashOut } = await import("./table.server");
     const db = await admin();
@@ -252,7 +273,11 @@ export const cashOutTableFn = createServerFn({ method: "POST" })
 
 export const leaveTable = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { code: string }) => ({ code: String(input.code ?? "").trim().toUpperCase() }))
+  .inputValidator((input: { code: string }) => ({
+    code: String(input.code ?? "")
+      .trim()
+      .toUpperCase(),
+  }))
   .handler(async ({ data, context }) => {
     const { admin, getTableByCode, cashOut } = await import("./table.server");
     const db = await admin();
@@ -267,10 +292,13 @@ export const leaveTable = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-
 export const getTableSnapshot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { code: string }) => ({ code: String(input.code ?? "").trim().toUpperCase() }))
+  .inputValidator((input: { code: string }) => ({
+    code: String(input.code ?? "")
+      .trim()
+      .toUpperCase(),
+  }))
   .handler(async ({ data, context }): Promise<TableSnapshot> => {
     const {
       admin,
@@ -286,11 +314,11 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
 
     const db = await admin();
     const table = await getTableByCode(db, data.code);
+    if (table.status === "closed") throw new Error("Esta mesa ya está cerrada");
     await enforceTurnTimer(db, table);
     await touchPresence(db, table.id, context.userId);
     await reconcileSeats(db, table);
     const players = await getPlayers(db, table.id);
-
 
     const { data: handRow } = await db
       .from("hands")
@@ -312,10 +340,12 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
     }
 
     const mine = players.find((p) => p.user_id === context.userId);
-    const avatars = await avatarUrlsFor(db, players.map((p) => p.user_id));
+    const avatars = await avatarUrlsFor(
+      db,
+      players.map((p) => p.user_id),
+    );
     const prefs = await profilePrefs(db, context.userId);
     const myBank = await getBank(db, context.userId);
-
 
     return {
       table: {
@@ -351,7 +381,8 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
         userId: context.userId,
         seat: mine?.seat ?? null,
         isHost:
-          table.host_id === context.userId && isHostEmail(context.claims.email as string | undefined),
+          table.host_id === context.userId &&
+          isHostEmail(context.claims.email as string | undefined),
         chips: mine?.chips ?? 0,
         bankChips: myBank,
 
@@ -367,7 +398,11 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
 
 export const dealHand = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { code: string }) => ({ code: String(input.code ?? "").trim().toUpperCase() }))
+  .inputValidator((input: { code: string }) => ({
+    code: String(input.code ?? "")
+      .trim()
+      .toUpperCase(),
+  }))
   .handler(async ({ data, context }) => {
     assertHostClaims(context.claims);
     const { admin, getTableByCode, dealNewHand } = await import("./table.server");
@@ -379,7 +414,11 @@ export const dealHand = createServerFn({ method: "POST" })
 /** Reparto automático: cualquier jugador sentado puede disparar la siguiente mano. */
 export const autoDealHand = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { code: string }) => ({ code: String(input.code ?? "").trim().toUpperCase() }))
+  .inputValidator((input: { code: string }) => ({
+    code: String(input.code ?? "")
+      .trim()
+      .toUpperCase(),
+  }))
   .handler(async ({ data, context }) => {
     const { admin, getTableByCode, dealNewHand } = await import("./table.server");
     const db = await admin();
@@ -389,11 +428,19 @@ export const autoDealHand = createServerFn({ method: "POST" })
 
 export const act = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: { code: string; action: "fold" | "check" | "call" | "raise"; amount?: number | undefined }) => ({
-    code: String(input.code ?? "").trim().toUpperCase(),
-    action: input.action,
-    amount: input.amount,
-  }))
+  .inputValidator(
+    (input: {
+      code: string;
+      action: "fold" | "check" | "call" | "raise";
+      amount?: number | undefined;
+    }) => ({
+      code: String(input.code ?? "")
+        .trim()
+        .toUpperCase(),
+      action: input.action,
+      amount: input.amount,
+    }),
+  )
   .handler(async ({ data, context }) => {
     const { admin, getTableByCode, performAction } = await import("./table.server");
     const db = await admin();
@@ -413,15 +460,19 @@ export const getHostPanel = createServerFn({ method: "POST" })
 export const addPlayerToTable = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { code: string; userId: string }) => ({
-    code: String(input.code ?? "").trim().toUpperCase(),
+    code: String(input.code ?? "")
+      .trim()
+      .toUpperCase(),
     userId: String(input.userId ?? ""),
   }))
   .handler(async ({ data, context }) => {
     assertHostClaims(context.claims);
-    const { admin, getTableByCode, getPlayers, displayNameFor } = await import("./table.server");
+    const { admin, getTableByCode, getPlayers, displayNameFor, touchTableActivity } =
+      await import("./table.server");
     const db = await admin();
     const table = await getTableByCode(db, data.code);
     if (table.host_id !== context.userId) throw new Error("Esa mesa no es tuya");
+    await touchTableActivity(db, table.id);
     const players = await getPlayers(db, table.id);
     if (players.some((p) => p.user_id === data.userId)) return { ok: true };
     const displayName = await displayNameFor(db, data.userId);

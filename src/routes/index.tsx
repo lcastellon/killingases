@@ -125,9 +125,14 @@ function Home() {
     <main className="felt-surface min-h-screen">
       <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col px-5 py-8">
         <header className="flex items-center justify-between">
-          <span className="font-display text-2xl tracking-widest text-primary">Killing Ases Poker Club{"\n"}</span>
+          <span className="font-display text-2xl tracking-widest text-primary">
+            Killing Ases Poker Club{"\n"}
+          </span>
           {signedIn === false && (
-            <Link to="/auth" className="text-sm font-semibold text-primary underline-offset-4 hover:underline">
+            <Link
+              to="/auth"
+              className="text-sm font-semibold text-primary underline-offset-4 hover:underline"
+            >
               Entrar
             </Link>
           )}
@@ -153,7 +158,6 @@ function Home() {
               </button>
             </div>
           )}
-
         </header>
 
         <section className="mt-10">
@@ -168,75 +172,75 @@ function Home() {
             <span className="block text-primary">{"\n"}</span>
           </h1>
           <p className="mt-4 text-sm text-muted-foreground">
-             Crea una mesa privada, y comparte el código. Cada quien juega desde su teléfono,
-            en tiempo real, con fichas de práctica.
+            Crea una mesa privada, y comparte el código. Cada quien juega desde su teléfono, en
+            tiempo real, con fichas de práctica.
           </p>
         </section>
 
         <section className="mt-10 space-y-4">
           {isHost ? (
-          <div className="rounded-2xl border border-brass-soft/40 bg-card/90 p-4">
-            <h2 className="text-xl text-foreground">Crear mesa</h2>
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <label className="text-xs text-muted-foreground">
-                Ciega grande
-                <input
-                  type="number"
-                  min={2}
-                  value={bigBlind}
-                  onChange={(e) => setBigBlind(Math.max(2, Number(e.target.value)))}
-                  className="tabular mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-base text-foreground outline-none focus:border-brass"
-                />
-              </label>
-              <label className="text-xs text-muted-foreground">
-                Ciega chica
-                <input
-                  type="number"
-                  min={1}
-                  value={Math.max(1, Math.floor(bigBlind / 2))}
-                  readOnly
-                  className="tabular mt-1 w-full rounded-lg border border-input bg-background/60 px-3 py-2 text-base text-muted-foreground outline-none"
-                />
-              </label>
+            <div className="rounded-2xl border border-brass-soft/40 bg-card/90 p-4">
+              <h2 className="text-xl text-foreground">Crear mesa</h2>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <label className="text-xs text-muted-foreground">
+                  Ciega grande
+                  <input
+                    type="number"
+                    min={2}
+                    value={bigBlind}
+                    onChange={(e) => setBigBlind(Math.max(2, Number(e.target.value)))}
+                    className="tabular mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-base text-foreground outline-none focus:border-brass"
+                  />
+                </label>
+                <label className="text-xs text-muted-foreground">
+                  Ciega chica
+                  <input
+                    type="number"
+                    min={1}
+                    value={Math.max(1, Math.floor(bigBlind / 2))}
+                    readOnly
+                    className="tabular mt-1 w-full rounded-lg border border-input bg-background/60 px-3 py-2 text-base text-muted-foreground outline-none"
+                  />
+                </label>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <label className="text-xs text-muted-foreground">
+                  Compra mínima
+                  <input
+                    type="number"
+                    min={1}
+                    step={100}
+                    value={minBuyin}
+                    onChange={(e) => setMinBuyin(Math.max(1, Number(e.target.value)))}
+                    className="tabular mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-base text-foreground outline-none focus:border-brass"
+                  />
+                </label>
+                <label className="text-xs text-muted-foreground">
+                  Compra máxima
+                  <input
+                    type="number"
+                    min={1}
+                    step={100}
+                    value={maxBuyin}
+                    onChange={(e) => setMaxBuyin(Math.max(1, Number(e.target.value)))}
+                    className="tabular mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-base text-foreground outline-none focus:border-brass"
+                  />
+                </label>
+              </div>
+              <p className="mt-2 text-[0.7rem] text-muted-foreground">
+                Cada jugador elige su propia compra dentro de este rango. Tú puedes agregar o
+                retirar fichas después desde el banco de la mesa. Las mesas se cierran
+                automáticamente después de 10 minutos sin actividad.
+              </p>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={handleCreate}
+                className="mt-4 w-full rounded-xl bg-primary py-3 font-display text-lg tracking-wide text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                Crear mesa
+              </button>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <label className="text-xs text-muted-foreground">
-                Compra mínima
-                <input
-                  type="number"
-                  min={1}
-                  step={100}
-                  value={minBuyin}
-                  onChange={(e) => setMinBuyin(Math.max(1, Number(e.target.value)))}
-                  className="tabular mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-base text-foreground outline-none focus:border-brass"
-                />
-              </label>
-              <label className="text-xs text-muted-foreground">
-                Compra máxima
-                <input
-                  type="number"
-                  min={1}
-                  step={100}
-                  value={maxBuyin}
-                  onChange={(e) => setMaxBuyin(Math.max(1, Number(e.target.value)))}
-                  className="tabular mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-base text-foreground outline-none focus:border-brass"
-                />
-              </label>
-            </div>
-            <p className="mt-2 text-[0.7rem] text-muted-foreground">
-              Cada jugador elige su propia compra dentro de este rango. Tú puedes agregar o retirar
-              fichas después desde el banco de la mesa. Las mesas quedan abiertas hasta que las
-              cierres.
-            </p>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={handleCreate}
-              className="mt-4 w-full rounded-xl bg-primary py-3 font-display text-lg tracking-wide text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
-              Crear mesa
-            </button>
-          </div>
           ) : (
             <div className="rounded-2xl border border-border/70 bg-card/70 p-4">
               <h2 className="text-xl text-foreground">Eres invitado</h2>

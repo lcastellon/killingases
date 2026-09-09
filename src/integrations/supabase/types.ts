@@ -288,6 +288,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      close_inactive_poker_tables: {
+        Args: { idle_minutes?: number }
+        Returns: number
+      }
       is_at_table: {
         Args: { _table_id: string; _user_id: string }
         Returns: boolean

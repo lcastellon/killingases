@@ -11,6 +11,7 @@ import {
 } from "./engine";
 
 const MAX_SEATS = 9;
+export const TABLE_INACTIVITY_MINUTES = 10;
 
 export type AdminClient = Awaited<
   typeof import("@/integrations/supabase/client.server")
@@ -47,6 +48,8 @@ export type TableRow = {
   special_rules: Record<string, unknown> | null;
   min_buyin: number;
   max_buyin: number;
+  created_at: string;
+  updated_at: string;
 };
 
 export type PlayerRow = {
@@ -92,6 +95,22 @@ export async function displayNameFor(db: AdminClient, userId: string): Promise<s
   return data?.display_name ?? "Jugador";
 }
 
+/**
+ * Registra una acción real en la mesa y evita que una limpieza concurrente la
+ * cierre. La presencia/polling no usa esta función: mirar una mesa no basta
+ * para mantenerla abierta indefinidamente.
+ */
+export async function touchTableActivity(db: AdminClient, tableId: string) {
+  const { data, error } = await db
+    .from("poker_tables")
+    .update({ updated_at: new Date().toISOString() })
+    .eq("id", tableId)
+    .neq("status", "closed")
+    .select("id")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("Esta mesa fue cerrada por inactividad");
+}
 
 async function loadLatestHand(db: AdminClient, tableId: string) {
   const { data, error } = await db
@@ -119,35 +138,23 @@ async function loadSecret(db: AdminClient, handId: string): Promise<HandState> {
 /**
  * Guarda la comisión de la casa una sola vez por mano (hand_id es único).
  */
-async function recordRake(
-  db: AdminClient,
-  tableId: string,
-  handId: string,
-  state: HandState,
-) {
+async function recordRake(db: AdminClient, tableId: string, handId: string, state: HandState) {
   if (!state.complete) return;
   const amount = state.rake ?? 0;
   if (amount <= 0) return;
-  await db
-    .from("house_rake")
-    .upsert(
-      {
-        table_id: tableId,
-        hand_id: handId,
-        hand_no: state.handNo,
-        pot: amount + state.winners.reduce((sum, w) => sum + w.amount, 0),
-        amount,
-      },
-      { onConflict: "hand_id" },
-    );
+  await db.from("house_rake").upsert(
+    {
+      table_id: tableId,
+      hand_id: handId,
+      hand_no: state.handNo,
+      pot: amount + state.winners.reduce((sum, w) => sum + w.amount, 0),
+      amount,
+    },
+    { onConflict: "hand_id" },
+  );
 }
 
-async function persistHand(
-  db: AdminClient,
-  handId: string,
-  state: HandState,
-  tableId?: string,
-) {
+async function persistHand(db: AdminClient, handId: string, state: HandState, tableId?: string) {
   const publicState = sanitize(state) as unknown as Json;
   const { error } = await db
     .from("hands")
@@ -236,6 +243,7 @@ export async function buyIn(
 ) {
   const wanted = Math.trunc(Number(amount));
   if (!Number.isFinite(wanted) || wanted <= 0) throw new Error("Cantidad inválida");
+  await touchTableActivity(db, table.id);
 
   const players = await getPlayers(db, table.id);
   const me = players.find((p) => p.user_id === userId);
@@ -287,6 +295,7 @@ export async function buyIn(
 
 /** Devuelve al banco las fichas que un jugador tiene en la mesa y libera su asiento. */
 export async function cashOut(db: AdminClient, table: TableRow, userId: string) {
+  await touchTableActivity(db, table.id);
   if (await handInProgress(db, table.id))
     throw new Error("Espera a que termine la mano en curso para retirar tus fichas");
 
@@ -314,25 +323,51 @@ export async function cashOut(db: AdminClient, table: TableRow, userId: string) 
 /** Devuelve al banco las fichas de todos los jugadores de una mesa (al cerrarla). */
 export async function cashOutTable(db: AdminClient, table: TableRow) {
   const players = await getPlayers(db, table.id);
+  const committedByUser = new Map<string, number>();
+  const latest = await loadLatestHand(db, table.id);
+  if (latest) {
+    const state = await loadSecret(db, latest.id);
+    if (!state.complete) {
+      for (const player of state.players) {
+        committedByUser.set(player.userId, Math.max(0, player.committed));
+      }
+    }
+  }
+
   for (const p of players) {
-    if (p.chips <= 0) continue;
+    const refund = p.chips + (committedByUser.get(p.user_id) ?? 0);
+    if (refund <= 0) continue;
     const bank = await getBank(db, p.user_id);
     const { error } = await db
       .from("table_players")
       .update({ chips: 0, seat: null })
       .eq("id", p.id);
     if (error) throw new Error(error.message);
-    await setBank(db, p.user_id, bank + p.chips);
+    await setBank(db, p.user_id, bank + refund);
   }
 }
 
-
+/**
+ * Cierra mesas que no han tenido acciones reales durante diez minutos. La
+ * actualización condicional actúa como candado para que dos limpiezas no
+ * devuelvan las mismas fichas dos veces.
+ */
+export async function closeInactiveTables(db: AdminClient) {
+  const { data, error } = await db.rpc("close_inactive_poker_tables", {
+    idle_minutes: TABLE_INACTIVITY_MINUTES,
+  });
+  if (error) throw new Error(error.message);
+  return data ?? 0;
+}
 
 /** Tables the host has open, for the permanent lobby list. */
 export async function listHostTables(db: AdminClient, hostId: string) {
+  await closeInactiveTables(db);
   const { data, error } = await db
     .from("poker_tables")
-    .select("id, code, name, status, small_blind, big_blind, min_buyin, max_buyin, hand_no, created_at")
+    .select(
+      "id, code, name, status, small_blind, big_blind, min_buyin, max_buyin, hand_no, created_at",
+    )
     .eq("host_id", hostId)
     .neq("status", "closed")
     .order("created_at", { ascending: false });
@@ -367,6 +402,7 @@ export async function listHostTables(db: AdminClient, hostId: string) {
 
 /** Mesas abiertas del club, visibles para invitados (sin exponer el código). */
 export async function listOpenTables(db: AdminClient) {
+  await closeInactiveTables(db);
   const { data, error } = await db
     .from("poker_tables")
     .select(
@@ -413,6 +449,7 @@ export async function listOpenTables(db: AdminClient) {
  * tomando las fichas de su banco global (nunca se crean fichas).
  */
 export async function rebuyChips(db: AdminClient, table: TableRow, userId: string) {
+  await touchTableActivity(db, table.id);
   if (await handInProgress(db, table.id))
     throw new Error("Espera a que termine la mano en curso para recargar fichas");
 
@@ -426,8 +463,7 @@ export async function rebuyChips(db: AdminClient, table: TableRow, userId: strin
   const bank = await getBank(db, userId);
   const needed = target - me.chips;
   const take = Math.min(bank, needed);
-  if (take <= 0)
-    throw new Error("Tu banco está en 0; pide fichas al anfitrión");
+  if (take <= 0) throw new Error("Tu banco está en 0; pide fichas al anfitrión");
   const next = me.chips + take;
   if (next < table.min_buyin)
     throw new Error(
@@ -448,6 +484,7 @@ export async function rebuyChips(db: AdminClient, table: TableRow, userId: strin
 /** El anfitrión devuelve al banco las fichas de todos los de la mesa. */
 export async function resetTableStacks(db: AdminClient, table: TableRow, hostId: string) {
   if (table.host_id !== hostId) throw new Error("Solo el anfitrión puede reiniciar la mesa");
+  await touchTableActivity(db, table.id);
   if (await handInProgress(db, table.id))
     throw new Error("Espera a que termine la mano en curso para reiniciar la mesa");
 
@@ -473,17 +510,16 @@ export async function adjustPlayerBank(
   return { bankChips: next };
 }
 
-
 export async function dealNewHand(
   db: AdminClient,
   table: TableRow,
   userId: string,
   opts?: { auto?: boolean },
 ) {
+  await touchTableActivity(db, table.id);
   await reconcileSeats(db, table);
   const players = await getPlayers(db, table.id);
-  if (!opts?.auto && table.host_id !== userId)
-    throw new Error("Solo el anfitrión puede repartir");
+  if (!opts?.auto && table.host_id !== userId) throw new Error("Solo el anfitrión puede repartir");
   if (opts?.auto) {
     const caller = players.find((p) => p.user_id === userId);
     if (!caller || caller.seat === null)
@@ -525,7 +561,6 @@ export async function dealNewHand(
       chips: p.chips,
     })),
   });
-
 
   const { data: hand, error } = await db
     .from("hands")
@@ -574,6 +609,7 @@ export async function performAction(
   action: ActionKind,
   amount?: number,
 ) {
+  await touchTableActivity(db, table.id);
   const latest = await loadLatestHand(db, table.id);
   if (!latest) throw new Error("No hay mano en curso");
   const state = await loadSecret(db, latest.id);
@@ -596,7 +632,6 @@ export async function performAction(
   await persistHand(db, latest.id, next, table.id);
   await syncChips(db, table.id, next);
   return { complete: next.complete, ignored: false };
-
 }
 
 /**
@@ -637,6 +672,7 @@ export async function enforceTurnTimer(db: AdminClient, table: TableRow) {
  * they are sitting at (with chip counts) across all of the host's open tables.
  */
 export async function hostPanelData(db: AdminClient, hostId: string) {
+  await closeInactiveTables(db);
   const { data: tableRows, error: tablesError } = await db
     .from("poker_tables")
     .select("id, code, name, status, min_buyin, max_buyin, small_blind, big_blind")
@@ -695,7 +731,6 @@ export async function hostPanelData(db: AdminClient, hostId: string) {
   };
 }
 
-
 export type ProfilePrefs = {
   displayName: string;
   avatarPath: string | null;
@@ -728,9 +763,11 @@ export async function profilePrefs(db: AdminClient, userId: string): Promise<Pro
     .select("display_name, avatar_path, felt_theme")
     .eq("id", userId)
     .maybeSingle();
-  const row = data as
-    | { display_name: string; avatar_path: string | null; felt_theme: string | null }
-    | null;
+  const row = data as {
+    display_name: string;
+    avatar_path: string | null;
+    felt_theme: string | null;
+  } | null;
   return {
     displayName: row?.display_name ?? "Jugador",
     avatarPath: row?.avatar_path ?? null,

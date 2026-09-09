@@ -122,7 +122,7 @@ function HostPanel() {
           <div className="flex items-baseline justify-between gap-2">
             <h2 className="text-lg text-foreground">Comisión de la casa</h2>
             <span className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
-              2% del bote · máx. 200 por mano
+              2% del bote · máx. 4 ciegas grandes por mano
             </span>
           </div>
 
@@ -200,10 +200,7 @@ function HostPanel() {
             const key = p.userId;
             const membership = p.memberships.find((m) => m.code === target);
             return (
-              <li
-                key={p.userId}
-                className="rounded-2xl border border-brass-soft/40 bg-card/85 p-3"
-              >
+              <li key={p.userId} className="rounded-2xl border border-brass-soft/40 bg-card/85 p-3">
                 <div className="flex items-baseline justify-between gap-2">
                   <p className="truncate text-base font-semibold text-foreground">
                     {p.displayName}
@@ -318,7 +315,6 @@ function HostPanel() {
             );
           })}
         </ul>
-
       </div>
     </main>
   );
