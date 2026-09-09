@@ -62,6 +62,31 @@ describe("Omaha evaluation (exactly 2 hole + 3 board)", () => {
     expect(evaluate5(["9h", "9d", "9c", "9s", "2h"]).category).toBe(7);
     expect(evaluate5(["5h", "4d", "3c", "2s", "Ah"]).category).toBe(4); // wheel
   });
+
+  it("deals five hole cards in No Limit Omaha 5", () => {
+    const state = startHand({
+      handNo: 1,
+      buttonSeat: 0,
+      smallBlind: 25,
+      bigBlind: 50,
+      seats: seats(2),
+      variant: "omaha5",
+      now: 0,
+    });
+
+    expect(state.variant).toBe("omaha5");
+    expect(state.specialRules).toMatchObject({ holeCards: 5, mustUseHole: 2 });
+    expect(Object.values(state.hole).every((cards) => cards.length === 5)).toBe(true);
+  });
+
+  it("evaluates Omaha 5 using exactly two hole cards and three board cards", () => {
+    const result = evaluateOmaha(["Ad", "2d", "Kh", "Qc", "Js"], ["Jd", "9d", "4d", "Tc", "3s"]);
+
+    expect(result.name).toBe("Color");
+    expect(result.holeUsed).toEqual(expect.arrayContaining(["Ad", "2d"]));
+    expect(result.holeUsed).toHaveLength(2);
+    expect(result.boardUsed).toHaveLength(3);
+  });
 });
 
 describe("blinds, button rotation and heads-up", () => {
@@ -214,11 +239,13 @@ describe("pots, ties and all-ins", () => {
       seats: seats(2, 1000),
       now: 0,
     });
-    rig(
-      state,
-      { 0: ["As", "Kh", "2c", "3d"], 1: ["Ad", "Kc", "2h", "3s"] },
-      ["Qs", "Jh", "Td", "7c", "4h"],
-    );
+    rig(state, { 0: ["As", "Kh", "2c", "3d"], 1: ["Ad", "Kc", "2h", "3s"] }, [
+      "Qs",
+      "Jh",
+      "Td",
+      "7c",
+      "4h",
+    ]);
     applyAction(state, 0, "call");
     applyAction(state, 1, "check");
     // flop, turn, river: everyone checks down
@@ -260,7 +287,6 @@ describe("pots, ties and all-ins", () => {
     applyAction(state, 2, "call"); // all-in call -> board runs out
     expect(state.complete).toBe(true);
 
-
     const total = state.players.reduce((sum, p) => sum + p.chips, 0);
     expect(state.rake).toBe(42); // 2% de 2100
     expect(total).toBe(2100 - 42); // fichas conservadas menos la comisión
@@ -297,11 +323,13 @@ describe("pots, ties and all-ins", () => {
       seats: seats(2, 200),
       now: 0,
     });
-    rig(
-      state,
-      { 0: ["As", "Ks", "2c", "3d"], 1: ["7h", "7d", "8c", "9s"] },
-      ["Qs", "Js", "Ts", "4c", "5h"],
-    );
+    rig(state, { 0: ["As", "Ks", "2c", "3d"], 1: ["7h", "7d", "8c", "9s"] }, [
+      "Qs",
+      "Js",
+      "Ts",
+      "4c",
+      "5h",
+    ]);
     applyAction(state, 0, "raise", 200);
     applyAction(state, 1, "call");
     expect(state.showdown).toHaveLength(2);

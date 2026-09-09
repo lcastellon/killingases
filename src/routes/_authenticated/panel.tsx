@@ -10,6 +10,7 @@ import {
   getHouseStats,
   setPlayerChips,
 } from "@/lib/poker/table.functions";
+import { gameVariantLabel } from "@/lib/poker/engine";
 
 export const Route = createFileRoute("/_authenticated/panel")({
   head: () => ({
@@ -281,7 +282,8 @@ function HostPanel() {
                     >
                       {tables.map((t) => (
                         <option key={t.code} value={t.code}>
-                          {t.code} · {t.name}
+                          {t.code} · {t.name} · {gameVariantLabel(t.gameVariant)}
+                          {t.isStable ? " · Estable" : ""}
                         </option>
                       ))}
                     </select>

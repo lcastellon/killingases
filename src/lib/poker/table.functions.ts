@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import type { PublicHandState, SpecialRules } from "./engine";
+import type { GameVariant, PublicHandState, SpecialRules } from "./engine";
 import { assertHostClaims, isHostEmail } from "./host";
 
 export type TableSnapshot = {
@@ -18,6 +18,7 @@ export type TableSnapshot = {
     turnSeconds: number;
     gameVariant: string;
     specialRules: SpecialRules;
+    isStable: boolean;
     minBuyin: number;
     maxBuyin: number;
   };
@@ -59,6 +60,8 @@ export const createTable = createServerFn({ method: "POST" })
       turnSeconds?: number;
       minBuyin?: number;
       maxBuyin?: number;
+      gameVariant?: GameVariant;
+      isStable?: boolean;
     }) => input,
   )
   .handler(async ({ data, context }) => {
@@ -71,6 +74,11 @@ export const createTable = createServerFn({ method: "POST" })
     const turnSeconds = Math.min(120, Math.max(10, Math.floor(data.turnSeconds ?? 30)));
     const minBuyin = Math.max(bigBlind * 2, Math.floor(data.minBuyin ?? bigBlind * 20));
     const maxBuyin = Math.max(minBuyin, Math.floor(data.maxBuyin ?? minBuyin * 10));
+    const gameVariant: GameVariant = data.gameVariant === "omaha5" ? "omaha5" : "omaha";
+    const specialRules: SpecialRules =
+      gameVariant === "omaha5"
+        ? { holeCards: 5, mustUseHole: 2 }
+        : { holeCards: 4, mustUseHole: 2 };
 
     let code = makeCode();
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -87,14 +95,17 @@ export const createTable = createServerFn({ method: "POST" })
       .from("poker_tables")
       .insert({
         code,
-        name: data.name?.trim() || "Mesa No Limit Omaha",
+        name:
+          data.name?.trim() ||
+          (gameVariant === "omaha5" ? "Mesa No Limit Omaha 5" : "Mesa No Limit Omaha"),
         host_id: context.userId,
         small_blind: smallBlind,
         big_blind: bigBlind,
         starting_chips: startingChips,
         turn_seconds: turnSeconds,
-        game_variant: "omaha",
-        special_rules: {},
+        game_variant: gameVariant,
+        special_rules: specialRules,
+        is_stable: Boolean(data.isStable),
         min_buyin: minBuyin,
         max_buyin: maxBuyin,
       })
@@ -362,6 +373,7 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
         turnSeconds: table.turn_seconds,
         gameVariant: table.game_variant,
         specialRules: (table.special_rules ?? {}) as SpecialRules,
+        isStable: table.is_stable,
         minBuyin: table.min_buyin,
         maxBuyin: table.max_buyin,
       },

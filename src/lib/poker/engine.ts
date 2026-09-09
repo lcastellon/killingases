@@ -2,7 +2,13 @@ import { describeOmaha, evaluateOmaha, handTitle, newDeck, shuffle, type Card } 
 
 export type Street = "preflop" | "flop" | "turn" | "river" | "showdown";
 
-export type GameVariant = "omaha" | "mata-ases";
+export type GameVariant = "omaha" | "omaha5" | "mata-ases";
+
+export function gameVariantLabel(variant: string): string {
+  if (variant === "omaha5") return "No Limit Omaha 5";
+  if (variant === "mata-ases") return "Mata Ases";
+  return "No Limit Omaha";
+}
 
 /** Room for future variants (Mata Ases) without touching the base engine. */
 export type SpecialRules = {
@@ -162,15 +168,23 @@ export function startHand(input: {
     autoActions: 0,
   }));
 
-  const specialRules = input.specialRules ?? {};
+  const variant = input.variant ?? "omaha";
+  const specialRules: SpecialRules = { ...(input.specialRules ?? {}) };
+  if (variant === "omaha5") {
+    specialRules.holeCards = 5;
+    specialRules.mustUseHole = 2;
+  }
   const state: HandState = {
     handNo: input.handNo,
     buttonSeat: input.buttonSeat,
     smallBlind: input.smallBlind,
     bigBlind: input.bigBlind,
-    variant: input.variant ?? "omaha",
+    variant,
     specialRules,
-    turnSeconds: input.turnSeconds && input.turnSeconds > 0 ? Math.floor(input.turnSeconds) : DEFAULT_TURN_SECONDS,
+    turnSeconds:
+      input.turnSeconds && input.turnSeconds > 0
+        ? Math.floor(input.turnSeconds)
+        : DEFAULT_TURN_SECONDS,
     turnEndsAt: null,
     street: "preflop",
     board: [],
@@ -233,7 +247,10 @@ export function legalActions(state: HandState, seat: number): LegalActions | nul
   if (!p || !canAct(p)) return null;
   const toCall = Math.min(state.currentBet - p.bet, p.chips);
   const maxRaiseTo = p.bet + p.chips;
-  const minRaiseTo = Math.min(Math.max(state.currentBet + state.minRaise, state.bigBlind), maxRaiseTo);
+  const minRaiseTo = Math.min(
+    Math.max(state.currentBet + state.minRaise, state.bigBlind),
+    maxRaiseTo,
+  );
   return {
     seat,
     canFold: true,
@@ -291,7 +308,9 @@ export function applyAction(
       for (const other of state.players) {
         if (other.seat !== p.seat && canAct(other)) other.hasActed = false;
       }
-      state.log.push(previousBet === 0 ? `${p.name} apuesta ${p.bet}` : `${p.name} sube a ${p.bet} (+${paid})`);
+      state.log.push(
+        previousBet === 0 ? `${p.name} apuesta ${p.bet}` : `${p.name} sube a ${p.bet} (+${paid})`,
+      );
     } else {
       state.log.push(`${p.name} va all-in con ${paid}`);
     }
@@ -436,7 +455,9 @@ function settle(state: HandState) {
     evaluated.set(p.seat, evaluateOmaha(state.hole[String(p.seat)] ?? [], state.board));
   }
 
-  const levels = [...new Set(state.players.map((p) => p.committed).filter((c) => c > 0))].sort((a, b) => a - b);
+  const levels = [...new Set(state.players.map((p) => p.committed).filter((c) => c > 0))].sort(
+    (a, b) => a - b,
+  );
 
   const winnersBySeat = new Map<number, Winner>();
   const payouts = new Map<number, number>();
@@ -504,7 +525,9 @@ function settle(state: HandState) {
 
   state.winners = [...winnersBySeat.values()].sort((a, b) => b.amount - a.amount);
   for (const w of state.winners) {
-    state.log.push(`${w.name} gana ${w.amount.toLocaleString("es-MX")} con ${w.handName ?? "la mano"}`);
+    state.log.push(
+      `${w.name} gana ${w.amount.toLocaleString("es-MX")} con ${w.handName ?? "la mano"}`,
+    );
   }
   if (totalRake > 0) {
     state.log.push(`La casa retiene ${totalRake.toLocaleString("es-MX")} de comisión (2%)`);

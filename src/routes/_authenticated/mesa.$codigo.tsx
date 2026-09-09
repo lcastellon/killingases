@@ -15,7 +15,7 @@ import {
   resetTable,
   type TableSnapshot,
 } from "@/lib/poker/table.functions";
-import { legalActions, type HandState } from "@/lib/poker/engine";
+import { gameVariantLabel, holeCardCount, legalActions, type HandState } from "@/lib/poker/engine";
 import { evaluateOmaha } from "@/lib/poker/cards";
 import { PlayingCard } from "@/components/poker/PlayingCard";
 import { type SeatView } from "@/components/poker/Seat";
@@ -27,7 +27,6 @@ import { TurnTimer } from "@/components/poker/TurnTimer";
 import { Showdown } from "@/components/poker/Showdown";
 import { PlayerSettings } from "@/components/poker/PlayerSettings";
 import { applyFeltTheme } from "@/lib/poker/theme";
-
 
 export const Route = createFileRoute("/_authenticated/mesa/$codigo")({
   head: ({ params }) => ({
@@ -71,7 +70,6 @@ function TableRoom() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [seatTarget, setSeatTarget] = useState<number | null>(null);
   const [finalDismissed, setFinalDismissed] = useState(false);
-
 
   const query = useQuery({
     // Versionamos la llave para no reutilizar snapshots antiguos creados antes
@@ -134,7 +132,6 @@ function TableRoom() {
     return () => clearTimeout(timer);
   }, [data, autoDeal, codigo, refetch]);
 
-
   const spectators = useMemo(
     () => (data ? data.players.filter((p) => p.seat === null) : []),
     [data],
@@ -165,7 +162,7 @@ function TableRoom() {
           isButton: hand ? hand.buttonSeat === p.seat : data.table.buttonSeat === p.seat,
           isMe,
           cards,
-          cardCount: handPlayer ? 4 : 0,
+          cardCount: handPlayer ? holeCardCount(data.table.specialRules) : 0,
           winAmount: winner?.amount,
           handName: winner?.handName,
 
@@ -174,7 +171,6 @@ function TableRoom() {
         } satisfies SeatView;
       });
   }, [data, hand]);
-
 
   const legal = useMemo(() => {
     if (!hand || data?.me.seat === null || data?.me.seat === undefined) return null;
@@ -250,9 +246,6 @@ function TableRoom() {
     );
   };
 
-
-
-
   return (
     <main className="felt-surface min-h-screen pb-4">
       <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-2 py-2 sm:px-4 sm:py-4">
@@ -272,9 +265,7 @@ function TableRoom() {
               }}
               className="rounded-lg border border-brass-soft/50 bg-card px-2 py-1 text-[0.7rem] sm:px-3 sm:py-1.5 sm:text-sm"
             >
-              <span className="font-display tracking-[0.2em] text-primary">
-                {data.table.code}
-              </span>
+              <span className="font-display tracking-[0.2em] text-primary">{data.table.code}</span>
             </button>
             <button
               type="button"
@@ -283,7 +274,11 @@ function TableRoom() {
               className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full border border-brass bg-felt/60 font-display text-[0.6rem] text-primary"
             >
               {data.me.avatarUrl ? (
-                <img src={data.me.avatarUrl} alt="Tu avatar" className="h-full w-full object-cover" />
+                <img
+                  src={data.me.avatarUrl}
+                  alt="Tu avatar"
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 data.me.displayName.slice(0, 2).toUpperCase()
               )}
@@ -293,7 +288,13 @@ function TableRoom() {
 
         <div className="mt-1.5 flex items-center justify-between gap-2 text-[0.7rem] text-muted-foreground sm:text-xs">
           <span className="truncate">
-            {data.table.smallBlind}/{data.table.bigBlind} · No Limit Omaha
+            {data.table.smallBlind}/{data.table.bigBlind} ·{" "}
+            {gameVariantLabel(data.table.gameVariant)}
+            {data.table.isStable && (
+              <span className="ml-2 rounded-full border border-primary/50 px-1.5 py-0.5 text-[0.55rem] uppercase tracking-wide text-primary">
+                Estable
+              </span>
+            )}
           </span>
           {hand ? (
             <span className="shrink-0">{`Mano #${hand.handNo} · ${STREET_LABEL[hand.street]}`}</span>
@@ -306,7 +307,6 @@ function TableRoom() {
             </Link>
           )}
         </div>
-
 
         {/* Mesa */}
         <PokerTable
@@ -368,39 +368,42 @@ function TableRoom() {
                       const result = await buy({
                         data: { code: codigo, amount: delta, seat: seatTarget },
                       });
-                      queryClient.setQueryData<TableSnapshot>(["mesa-live-v2", codigo], (current) => {
-                        if (!current) return current;
-                        const seatedMe = {
-                          userId: current.me.userId,
-                          seat: seatTarget,
-                          displayName: current.me.displayName,
-                          chips: result.chips,
-                          sittingOut: false,
-                          lastSeenAt: current.serverNow,
-                          online: true,
-                          avatarUrl: current.me.avatarUrl,
-                        };
-                        const alreadyListed = current.players.some(
-                          (player) => player.userId === current.me.userId,
-                        );
-                        return {
-                          ...current,
-                          players: alreadyListed
-                            ? current.players.map((player) =>
-                                player.userId === current.me.userId
-                                  ? { ...player, ...seatedMe }
-                                  : player,
-                              )
-                            : [...current.players, seatedMe],
-                          me: {
-                            ...current.me,
+                      queryClient.setQueryData<TableSnapshot>(
+                        ["mesa-live-v2", codigo],
+                        (current) => {
+                          if (!current) return current;
+                          const seatedMe = {
+                            userId: current.me.userId,
                             seat: seatTarget,
+                            displayName: current.me.displayName,
                             chips: result.chips,
-                            bankChips: result.bankChips,
-                            isSpectator: false,
-                          },
-                        };
-                      });
+                            sittingOut: false,
+                            lastSeenAt: current.serverNow,
+                            online: true,
+                            avatarUrl: current.me.avatarUrl,
+                          };
+                          const alreadyListed = current.players.some(
+                            (player) => player.userId === current.me.userId,
+                          );
+                          return {
+                            ...current,
+                            players: alreadyListed
+                              ? current.players.map((player) =>
+                                  player.userId === current.me.userId
+                                    ? { ...player, ...seatedMe }
+                                    : player,
+                                )
+                              : [...current.players, seatedMe],
+                            me: {
+                              ...current.me,
+                              seat: seatTarget,
+                              chips: result.chips,
+                              bankChips: result.bankChips,
+                              isSpectator: false,
+                            },
+                          };
+                        },
+                      );
                       setSeatTarget(null);
                       setBuyin("");
                       await queryClient.invalidateQueries({
@@ -409,7 +412,6 @@ function TableRoom() {
                       });
                       toast.success(`Te sentaste en el asiento ${seatTarget + 1}`);
                     })
-
                   }
                   className="flex-1 rounded-xl bg-primary px-4 py-2 font-display tracking-wide text-primary-foreground disabled:opacity-50"
                 >
@@ -419,8 +421,6 @@ function TableRoom() {
             </div>
           </div>
         )}
-
-
 
         {/* Partida terminada */}
         {gameOver && !finalDismissed && (
@@ -474,8 +474,7 @@ function TableRoom() {
         )}
 
         {/* Mis fichas */}
-        {(
-
+        {
           <section className="mt-2 rounded-2xl border border-brass-soft/40 bg-card/80 p-2.5 sm:mt-4 sm:p-3">
             <div className="flex items-center justify-between gap-3">
               {amSeated ? (
@@ -506,7 +505,6 @@ function TableRoom() {
               </div>
             </div>
 
-
             {!amSeated && (
               <div className="mt-3 border-t border-border/50 pt-3">
                 {data.me.bankChips <= 0 ? (
@@ -532,8 +530,7 @@ function TableRoom() {
               </button>
             )}
           </section>
-        )}
-
+        }
 
         {/* Espectadores */}
         {spectators.length > 0 && (
@@ -549,26 +546,29 @@ function TableRoom() {
           </section>
         )}
 
-
-
-
         {/* Mis cartas */}
         {data.myCards && (
           <section className="mt-2 flex items-end justify-between rounded-2xl border border-brass-soft/40 bg-card/80 p-2.5 sm:mt-4 sm:p-3">
-            <div className="flex gap-2">
+            <div className="flex gap-1 sm:gap-2">
               {data.myCards.map((c) => (
-                <PlayingCard key={c} card={c} size="lg" />
+                <PlayingCard
+                  key={c}
+                  card={c}
+                  size="lg"
+                  className={data.myCards.length > 4 ? "w-12 sm:w-16" : undefined}
+                />
               ))}
             </div>
             <div className="text-right">
               <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
                 Tu mano
               </p>
-              <p className="font-display text-base text-primary sm:text-xl">{myBest?.name ?? "Omaha"}</p>
+              <p className="font-display text-base text-primary sm:text-xl">
+                {myBest?.name ?? gameVariantLabel(data.table.gameVariant)}
+              </p>
             </div>
           </section>
         )}
-
 
         {/* Acciones */}
         <section className="sticky bottom-0 z-30 -mx-2 mt-2 space-y-2 bg-gradient-to-t from-background/95 via-background/85 to-transparent px-2 pb-2 pt-2 backdrop-blur sm:static sm:mx-0 sm:mt-4 sm:space-y-3 sm:bg-none sm:px-0 sm:pb-0 sm:backdrop-blur-none">
@@ -691,7 +691,6 @@ function TableRoom() {
               El anfitrión reparte la siguiente mano.
             </p>
           )}
-
         </section>
 
         {/* Historial */}

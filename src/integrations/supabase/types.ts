@@ -162,6 +162,7 @@ export type Database = {
           hand_no: number
           host_id: string
           id: string
+          is_stable: boolean
           max_buyin: number
           min_buyin: number
           name: string
@@ -181,6 +182,7 @@ export type Database = {
           hand_no?: number
           host_id: string
           id?: string
+          is_stable?: boolean
           max_buyin?: number
           min_buyin?: number
           name?: string
@@ -200,6 +202,7 @@ export type Database = {
           hand_no?: number
           host_id?: string
           id?: string
+          is_stable?: boolean
           max_buyin?: number
           min_buyin?: number
           name?: string

@@ -48,6 +48,7 @@ export type TableRow = {
   special_rules: Record<string, unknown> | null;
   min_buyin: number;
   max_buyin: number;
+  is_stable: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -366,7 +367,7 @@ export async function listHostTables(db: AdminClient, hostId: string) {
   const { data, error } = await db
     .from("poker_tables")
     .select(
-      "id, code, name, status, small_blind, big_blind, min_buyin, max_buyin, hand_no, created_at",
+      "id, code, name, status, game_variant, is_stable, small_blind, big_blind, min_buyin, max_buyin, hand_no, created_at",
     )
     .eq("host_id", hostId)
     .neq("status", "closed")
@@ -391,6 +392,8 @@ export async function listHostTables(db: AdminClient, hostId: string) {
     code: t.code,
     name: t.name,
     status: t.status,
+    gameVariant: t.game_variant,
+    isStable: t.is_stable,
     smallBlind: t.small_blind,
     bigBlind: t.big_blind,
     minBuyin: t.min_buyin,
@@ -406,7 +409,7 @@ export async function listOpenTables(db: AdminClient) {
   const { data, error } = await db
     .from("poker_tables")
     .select(
-      "id, name, status, game_variant, small_blind, big_blind, min_buyin, max_buyin, hand_no, created_at",
+      "id, name, status, game_variant, is_stable, small_blind, big_blind, min_buyin, max_buyin, hand_no, created_at",
     )
     .neq("status", "closed")
     .order("created_at", { ascending: false });
@@ -434,6 +437,7 @@ export async function listOpenTables(db: AdminClient) {
     name: t.name,
     status: t.status,
     gameVariant: t.game_variant,
+    isStable: t.is_stable,
     smallBlind: t.small_blind,
     bigBlind: t.big_blind,
     minBuyin: t.min_buyin,
@@ -675,7 +679,9 @@ export async function hostPanelData(db: AdminClient, hostId: string) {
   await closeInactiveTables(db);
   const { data: tableRows, error: tablesError } = await db
     .from("poker_tables")
-    .select("id, code, name, status, min_buyin, max_buyin, small_blind, big_blind")
+    .select(
+      "id, code, name, status, game_variant, is_stable, min_buyin, max_buyin, small_blind, big_blind",
+    )
     .eq("host_id", hostId)
     .neq("status", "closed")
     .order("created_at", { ascending: false });
@@ -707,6 +713,8 @@ export async function hostPanelData(db: AdminClient, hostId: string) {
     tables: tables.map((t) => ({
       code: t.code,
       name: t.name,
+      gameVariant: t.game_variant,
+      isStable: t.is_stable,
       minBuyin: t.min_buyin,
       maxBuyin: t.max_buyin,
       smallBlind: t.small_blind,

@@ -13,6 +13,7 @@ import {
 } from "@/lib/poker/table.functions";
 import { isHostEmail } from "@/lib/poker/host";
 import { PlayingCard } from "@/components/poker/PlayingCard";
+import { gameVariantLabel, type GameVariant } from "@/lib/poker/engine";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -46,6 +47,8 @@ function Home() {
   const [bigBlind, setBigBlind] = useState(50);
   const [minBuyin, setMinBuyin] = useState(1000);
   const [maxBuyin, setMaxBuyin] = useState(20000);
+  const [gameVariant, setGameVariant] = useState<Extract<GameVariant, "omaha" | "omaha5">>("omaha");
+  const [isStable, setIsStable] = useState(false);
   const [tables, setTables] = useState<Awaited<ReturnType<typeof listMyTables>>>([]);
   const openTablesFn = useServerFn(listOpenTables);
   const [openTables, setOpenTables] = useState<Awaited<ReturnType<typeof listOpenTables>>>([]);
@@ -94,6 +97,8 @@ function Home() {
           smallBlind: Math.max(1, Math.floor(bigBlind / 2)),
           minBuyin,
           maxBuyin,
+          gameVariant,
+          isStable,
         },
       });
       navigate({ to: "/mesa/$codigo", params: { codigo: result.code } });
@@ -181,6 +186,35 @@ function Home() {
           {isHost ? (
             <div className="rounded-2xl border border-brass-soft/40 bg-card/90 p-4">
               <h2 className="text-xl text-foreground">Crear mesa</h2>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <label className="text-xs text-muted-foreground">
+                  Variante
+                  <select
+                    value={gameVariant}
+                    onChange={(event) =>
+                      setGameVariant(event.target.value === "omaha5" ? "omaha5" : "omaha")
+                    }
+                    className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-base text-foreground outline-none focus:border-brass"
+                  >
+                    <option value="omaha">No Limit Omaha · 4 cartas</option>
+                    <option value="omaha5">No Limit Omaha 5 · 5 cartas</option>
+                  </select>
+                </label>
+                <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-foreground sm:mt-5">
+                  <input
+                    type="checkbox"
+                    checked={isStable}
+                    onChange={(event) => setIsStable(event.target.checked)}
+                    className="h-4 w-4 accent-primary"
+                  />
+                  <span>
+                    <span className="block font-semibold text-primary">Estable</span>
+                    <span className="block text-[0.65rem] text-muted-foreground">
+                      No se cierra por inactividad
+                    </span>
+                  </span>
+                </label>
+              </div>
               <div className="mt-3 grid grid-cols-2 gap-3">
                 <label className="text-xs text-muted-foreground">
                   Ciega grande
@@ -230,7 +264,8 @@ function Home() {
               <p className="mt-2 text-[0.7rem] text-muted-foreground">
                 Cada jugador elige su propia compra dentro de este rango. Tú puedes agregar o
                 retirar fichas después desde el banco de la mesa. Las mesas se cierran
-                automáticamente después de 10 minutos sin actividad.
+                automáticamente después de 10 minutos sin actividad, excepto las marcadas como
+                Estable.
               </p>
               <button
                 type="button"
@@ -264,11 +299,17 @@ function Home() {
                       <p className="truncate text-sm font-semibold text-foreground">
                         {t.name} ·{" "}
                         <span className="font-display tracking-[0.2em] text-primary">{t.code}</span>
+                        {t.isStable && (
+                          <span className="ml-2 rounded-full border border-primary/50 px-1.5 py-0.5 text-[0.6rem] uppercase tracking-wide text-primary">
+                            Estable
+                          </span>
+                        )}
                       </p>
                       <p className="tabular text-xs text-muted-foreground">
-                        {t.players} jugador{t.players === 1 ? "" : "es"} · ciegas {t.smallBlind}/
-                        {t.bigBlind} · compra {t.minBuyin.toLocaleString("es-MX")}–
-                        {t.maxBuyin.toLocaleString("es-MX")} · mano #{t.handNo}
+                        {gameVariantLabel(t.gameVariant)} · {t.players} jugador
+                        {t.players === 1 ? "" : "es"} · ciegas {t.smallBlind}/{t.bigBlind} · compra{" "}
+                        {t.minBuyin.toLocaleString("es-MX")}–{t.maxBuyin.toLocaleString("es-MX")} ·
+                        mano #{t.handNo}
                       </p>
                     </div>
                     <Link
@@ -322,10 +363,15 @@ function Home() {
                     >
                       <div className="flex items-center gap-2">
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-foreground">{t.name}</p>
-                          <p className="text-xs text-primary">
-                            {t.gameVariant === "omaha" ? "No Limit Omaha" : t.gameVariant}
+                          <p className="truncate text-sm font-semibold text-foreground">
+                            {t.name}
+                            {t.isStable && (
+                              <span className="ml-2 rounded-full border border-primary/50 px-1.5 py-0.5 text-[0.6rem] uppercase tracking-wide text-primary">
+                                Estable
+                              </span>
+                            )}
                           </p>
+                          <p className="text-xs text-primary">{gameVariantLabel(t.gameVariant)}</p>
                           <p className="tabular mt-1 text-xs text-muted-foreground">
                             Ciegas {t.smallBlind}/{t.bigBlind} · {t.seated}/{t.maxSeats} sentados ·
                             compra {t.minBuyin.toLocaleString("es-MX")}–
