@@ -757,22 +757,26 @@ export async function enforceTurnTimer(db: AdminClient, table: TableRow) {
  */
 export async function hostPanelData(db: AdminClient, hostId: string) {
   scheduleInactiveTablesCleanup(db);
-  const { data: tableRows, error: tablesError } = await db
-    .from("poker_tables")
-    .select(
-      "id, code, name, status, game_variant, is_stable, table_mode, min_buyin, max_buyin, small_blind, big_blind",
-    )
-    .eq("host_id", hostId)
-    .neq("status", "closed")
-    .order("created_at", { ascending: false });
-  if (tablesError) throw new Error(tablesError.message);
-  const tables = tableRows ?? [];
+  // Mesas y perfiles no dependen entre sí: se piden en paralelo.
+  const [tablesResult, profilesResult] = await Promise.all([
+    db
+      .from("poker_tables")
+      .select(
+        "id, code, name, status, game_variant, is_stable, table_mode, min_buyin, max_buyin, small_blind, big_blind",
+      )
+      .eq("host_id", hostId)
+      .neq("status", "closed")
+      .order("created_at", { ascending: false }),
+    db
+      .from("profiles")
+      .select("id, display_name, created_at, bank_chips")
+      .order("created_at", { ascending: true }),
+  ]);
+  if (tablesResult.error) throw new Error(tablesResult.error.message);
+  if (profilesResult.error) throw new Error(profilesResult.error.message);
+  const tables = tablesResult.data ?? [];
+  const profileRows = profilesResult.data;
 
-  const { data: profileRows, error: profilesError } = await db
-    .from("profiles")
-    .select("id, display_name, created_at, bank_chips")
-    .order("created_at", { ascending: true });
-  if (profilesError) throw new Error(profilesError.message);
 
   let seats: { table_id: string; user_id: string; chips: number; seat: number | null }[] = [];
   if (tables.length > 0) {
