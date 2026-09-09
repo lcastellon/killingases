@@ -237,6 +237,12 @@
     animation: pot-to-winner 1050ms cubic-bezier(0.22, 0.75, 0.25, 1) 180ms forwards;
     will-change: transform, opacity;
   }
+
+  .table-reaction-pop {
+    opacity: 0;
+    animation: table-reaction-pop 4s cubic-bezier(0.2, 0.8, 0.25, 1) forwards;
+    will-change: transform, opacity;
+  }
 }
 
 @keyframes card-deal-in {
@@ -314,12 +320,35 @@
   }
 }
 
+@keyframes table-reaction-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0.8rem) scale(0.35) rotate(-12deg);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1.18) rotate(4deg);
+  }
+  22% {
+    transform: translate(-50%, 0) scale(1) rotate(0deg);
+  }
+  72% {
+    opacity: 1;
+    transform: translate(-50%, -0.3rem) scale(1) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -2.2rem) scale(0.75) rotate(8deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .card-deal-in,
   .board-card-reveal,
   .bet-chips-enter,
   .pot-chips-pop,
-  .pot-to-winner {
+  .pot-to-winner,
+  .table-reaction-pop {
     animation: none !important;
     opacity: 1;
     transform: none;

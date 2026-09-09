@@ -2,16 +2,19 @@ import { PlayingCard } from "./PlayingCard";
 import { ChipStack } from "./ChipStack";
 import { cn } from "@/lib/utils";
 import type { SeatView } from "./Seat";
+import { tableReactionDetails, type TableReactionEvent } from "@/lib/poker/reactions";
 import type { CSSProperties } from "react";
 
 /** Compact seat plate used around the oval table (StarsWorld-style layout). */
 export function SeatPill({
   view,
+  reaction,
   onAvatarClick,
   cardsBelow,
   deal,
 }: {
   view: SeatView;
+  reaction?: TableReactionEvent | undefined;
   onAvatarClick?: (() => void) | undefined;
   cardsBelow?: boolean | undefined;
   deal?: { handNo: number; playerOrder: number; playerCount: number } | undefined;
@@ -47,11 +50,21 @@ export function SeatPill({
 
       <div
         className={cn(
-          "flex items-center gap-1 rounded-full border bg-felt-deep/95 py-0.5 pl-0.5 pr-2 shadow-chip backdrop-blur transition-all sm:gap-2 sm:py-1 sm:pl-1 sm:pr-3",
+          "relative flex items-center gap-1 rounded-full border bg-felt-deep/95 py-0.5 pl-0.5 pr-2 shadow-chip backdrop-blur transition-all sm:gap-2 sm:py-1 sm:pl-1 sm:pr-3",
           view.isTurn ? "border-brass shadow-[0_0_0_2px_var(--brass)]" : "border-brass-soft/40",
           view.folded && "opacity-45",
         )}
       >
+        {reaction && (
+          <div
+            key={reaction.id}
+            role="status"
+            aria-label={`${view.name}: ${tableReactionDetails(reaction.reaction).label}`}
+            className="table-reaction-pop pointer-events-none absolute bottom-full left-1/2 z-40 mb-1 grid h-12 w-12 place-items-center rounded-full border border-brass-soft/70 bg-card/95 text-3xl shadow-table"
+          >
+            {tableReactionDetails(reaction.reaction).emoji}
+          </div>
+        )}
         <button
           type="button"
           onClick={view.isMe && onAvatarClick ? onAvatarClick : undefined}

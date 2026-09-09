@@ -3,6 +3,7 @@ import { ChipStack } from "@/components/poker/ChipStack";
 import { SeatPill } from "@/components/poker/SeatPill";
 import { EmptySeat } from "@/components/poker/EmptySeat";
 import type { SeatView } from "@/components/poker/Seat";
+import type { TableReactionEvent } from "@/lib/poker/reactions";
 import type { CSSProperties } from "react";
 
 /** Positions (in % of the oval container) for 8 seats, starting at the bottom. */
@@ -24,6 +25,7 @@ export function PokerTable({
   handNo,
   handComplete = false,
   maxSeats = 8,
+  reactionsBySeat = {},
   onAvatarClick,
   onEmptySeatClick,
 }: {
@@ -33,6 +35,7 @@ export function PokerTable({
   handNo?: number | undefined;
   handComplete?: boolean | undefined;
   maxSeats?: number;
+  reactionsBySeat?: Record<number, TableReactionEvent>;
   onAvatarClick?: (() => void) | undefined;
   onEmptySeatClick?: ((seat: number) => void) | undefined;
 }) {
@@ -124,6 +127,7 @@ export function PokerTable({
               {slot.view ? (
                 <SeatPill
                   view={slot.view}
+                  reaction={reactionsBySeat[slot.view.seat]}
                   onAvatarClick={onAvatarClick}
                   cardsBelow={i === 0}
                   deal={

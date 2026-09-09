@@ -24,6 +24,8 @@ import { TurnTimer } from "@/components/poker/TurnTimer";
 import { Showdown } from "@/components/poker/Showdown";
 import { PlayerSettings } from "@/components/poker/PlayerSettings";
 import { TableChat } from "@/components/poker/TableChat";
+import { ReactionPicker } from "@/components/poker/ReactionPicker";
+import { useTableReactions } from "@/hooks/useTableReactions";
 import { applyFeltTheme } from "@/lib/poker/theme";
 
 export const Route = createFileRoute("/_authenticated/mesa/$codigo")({
@@ -92,6 +94,7 @@ function TableRoom() {
   }, [queryClient, codigo]);
 
   useTableRealtime(query.data?.table.id, refetch);
+  const tableReactions = useTableReactions(query.data?.table.id, codigo);
 
   const data = query.data;
   const feltTheme = query.data?.me.feltTheme;
@@ -302,6 +305,7 @@ function TableRoom() {
           board={hand?.board ?? []}
           handNo={hand?.handNo}
           handComplete={hand?.complete ?? false}
+          reactionsBySeat={tableReactions.reactionsBySeat}
           onAvatarClick={() => setSettingsOpen(true)}
           onEmptySeatClick={!amSeated ? (seat) => openSeatDialog(seat) : undefined}
         />
@@ -486,6 +490,10 @@ function TableRoom() {
 
         {/* Acciones */}
         <section className="sticky bottom-0 z-30 -mx-2 mt-2 space-y-2 bg-gradient-to-t from-background/95 via-background/85 to-transparent px-2 pb-2 pt-2 backdrop-blur sm:static sm:mx-0 sm:mt-4 sm:space-y-3 sm:bg-none sm:px-0 sm:pb-0 sm:backdrop-blur-none">
+          {amSeated && (
+            <ReactionPicker sending={tableReactions.sending} onReact={tableReactions.react} />
+          )}
+
           {hand && !hand.complete && hand.turnEndsAt && hand.currentSeat !== null && (
             <TurnTimer
               endsAt={hand.turnEndsAt}
