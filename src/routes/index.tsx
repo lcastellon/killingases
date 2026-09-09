@@ -13,6 +13,7 @@ import {
 } from "@/lib/poker/table.functions";
 import { isHostEmail } from "@/lib/poker/host";
 import { PlayingCard } from "@/components/poker/PlayingCard";
+import { TournamentCreateForm } from "@/components/poker/TournamentCreateForm";
 import { gameVariantLabel, type GameVariant } from "@/lib/poker/engine";
 
 export const Route = createFileRoute("/")({
@@ -185,7 +186,7 @@ function Home() {
         <section className="mt-10 space-y-4">
           {isHost ? (
             <div className="rounded-2xl border border-brass-soft/40 bg-card/90 p-4">
-              <h2 className="text-xl text-foreground">Crear mesa</h2>
+              <h2 className="text-xl text-foreground">Crear mesa normal</h2>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <label className="text-xs text-muted-foreground">
                   Variante
@@ -286,6 +287,16 @@ function Home() {
             </div>
           )}
 
+          {isHost && (
+            <TournamentCreateForm
+              busy={busy}
+              setBusy={setBusy}
+              onCreated={(tournamentCode) =>
+                navigate({ to: "/mesa/$codigo", params: { codigo: tournamentCode } })
+              }
+            />
+          )}
+
           {isHost && tables.length > 0 && (
             <div className="rounded-2xl border border-brass-soft/40 bg-card/80 p-4">
               <h2 className="text-xl text-foreground">Tus mesas abiertas</h2>
@@ -304,12 +315,19 @@ function Home() {
                             Estable
                           </span>
                         )}
+                        {t.tableMode === "tournament" && (
+                          <span className="ml-2 rounded-full border border-chip-red/60 px-1.5 py-0.5 text-[0.6rem] uppercase tracking-wide text-chip-red">
+                            Torneo
+                          </span>
+                        )}
                       </p>
                       <p className="tabular text-xs text-muted-foreground">
                         {gameVariantLabel(t.gameVariant)} · {t.players} jugador
-                        {t.players === 1 ? "" : "es"} · ciegas {t.smallBlind}/{t.bigBlind} · compra{" "}
-                        {t.minBuyin.toLocaleString("es-MX")}–{t.maxBuyin.toLocaleString("es-MX")} ·
-                        mano #{t.handNo}
+                        {t.players === 1 ? "" : "es"} · ciegas {t.smallBlind}/{t.bigBlind}
+                        {t.tableMode === "cash"
+                          ? ` · compra ${t.minBuyin.toLocaleString("es-MX")}–${t.maxBuyin.toLocaleString("es-MX")}`
+                          : " · estructura de torneo"}{" "}
+                        · mano #{t.handNo}
                       </p>
                     </div>
                     <Link
@@ -370,12 +388,18 @@ function Home() {
                                 Estable
                               </span>
                             )}
+                            {t.tableMode === "tournament" && (
+                              <span className="ml-2 rounded-full border border-chip-red/60 px-1.5 py-0.5 text-[0.6rem] uppercase tracking-wide text-chip-red">
+                                Torneo
+                              </span>
+                            )}
                           </p>
                           <p className="text-xs text-primary">{gameVariantLabel(t.gameVariant)}</p>
                           <p className="tabular mt-1 text-xs text-muted-foreground">
-                            Ciegas {t.smallBlind}/{t.bigBlind} · {t.seated}/{t.maxSeats} sentados ·
-                            compra {t.minBuyin.toLocaleString("es-MX")}–
-                            {t.maxBuyin.toLocaleString("es-MX")}
+                            Ciegas {t.smallBlind}/{t.bigBlind} · {t.seated}/{t.maxSeats} sentados
+                            {t.tableMode === "cash"
+                              ? ` · compra ${t.minBuyin.toLocaleString("es-MX")}–${t.maxBuyin.toLocaleString("es-MX")}`
+                              : " · inscripción dentro de la mesa"}
                           </p>
                         </div>
                         <button

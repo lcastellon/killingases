@@ -123,11 +123,11 @@ function HostPanel() {
           <div className="flex items-baseline justify-between gap-2">
             <h2 className="text-lg text-foreground">Comisión de la casa</h2>
             <span className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
-              2% del bote · máx. 4 ciegas grandes por mano
+              Mesas normales: 2% · máx. 4 BB / Torneos: cuota configurada
             </span>
           </div>
 
-          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+          <div className="mt-3 grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
             <div className="rounded-xl bg-background/60 p-2">
               <p className="tabular font-display text-xl text-primary">
                 {(stats.data?.today.rake ?? 0).toLocaleString("es-MX")}
@@ -148,6 +148,14 @@ function HostPanel() {
               </p>
               <p className="text-[0.6rem] uppercase tracking-widest text-muted-foreground">
                 14 días
+              </p>
+            </div>
+            <div className="rounded-xl bg-background/60 p-2">
+              <p className="tabular font-display text-xl text-primary">
+                {(stats.data?.tournamentFees ?? 0).toLocaleString("es-MX")}
+              </p>
+              <p className="text-[0.6rem] uppercase tracking-widest text-muted-foreground">
+                Torneos acumulado
               </p>
             </div>
           </div>

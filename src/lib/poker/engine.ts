@@ -16,6 +16,8 @@ export type SpecialRules = {
   holeCards?: number;
   /** Exact number of hole cards that must be used at showdown. */
   mustUseHole?: number;
+  /** Tournament entry fees replace per-hand rake when this is false. */
+  chargeRake?: boolean;
   /** Free-form JSON flags for future rules. */
   [key: string]: string | number | boolean | null | undefined;
 };
@@ -363,7 +365,11 @@ function advance(state: HandState, now: number = Date.now()) {
   const contenders = activeSeats(state);
   if (contenders.length === 1) {
     const winner = contenders[0]!;
-    const rake = rakeFor(state.pot, state.bigBlind, state.street !== "preflop");
+    const rake = rakeFor(
+      state.pot,
+      state.bigBlind,
+      state.street !== "preflop" && state.specialRules.chargeRake !== false,
+    );
     state.rake = rake;
     const net = state.pot - rake;
     winner.chips += net;
@@ -462,7 +468,11 @@ function settle(state: HandState) {
   const winnersBySeat = new Map<number, Winner>();
   const payouts = new Map<number, number>();
   // La comisión de la casa se descuenta del bote principal hacia arriba.
-  const totalRake = rakeFor(state.pot, state.bigBlind, state.board.length >= 3);
+  const totalRake = rakeFor(
+    state.pot,
+    state.bigBlind,
+    state.board.length >= 3 && state.specialRules.chargeRake !== false,
+  );
   state.rake = totalRake;
   let pendingRake = totalRake;
   let previous = 0;

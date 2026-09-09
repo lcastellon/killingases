@@ -314,6 +314,23 @@ describe("pots, ties and all-ins", () => {
     expect(state.players.reduce((s, p) => s + p.chips, 0)).toBe(392);
   });
 
+  it("does not charge per-hand rake in tournament mode", () => {
+    const state = startHand({
+      handNo: 1,
+      buttonSeat: 0,
+      smallBlind: 25,
+      bigBlind: 50,
+      seats: seats(2, 200),
+      specialRules: { chargeRake: false },
+      now: 0,
+    });
+    applyAction(state, 0, "raise", 200);
+    applyAction(state, 1, "call");
+    expect(state.complete).toBe(true);
+    expect(state.rake).toBe(0);
+    expect(state.players.reduce((sum, player) => sum + player.chips, 0)).toBe(400);
+  });
+
   it("explains each showdown hand with the exact cards used", () => {
     const state = startHand({
       handNo: 1,

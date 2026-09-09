@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { GameVariant, PublicHandState, SpecialRules } from "./engine";
 import { assertHostClaims, isHostEmail } from "./host";
+import type { TournamentView } from "./tournament";
 
 export type TableSnapshot = {
   table: {
@@ -19,6 +20,7 @@ export type TableSnapshot = {
     gameVariant: string;
     specialRules: SpecialRules;
     isStable: boolean;
+    tableMode: "cash" | "tournament";
     minBuyin: number;
     maxBuyin: number;
   };
@@ -46,6 +48,7 @@ export type TableSnapshot = {
     avatarUrl: string | null;
     feltTheme: string;
   };
+  tournament: TournamentView | null;
   serverNow: string;
 };
 
@@ -237,6 +240,10 @@ export const closeTable = createServerFn({ method: "POST" })
     const db = await admin();
     const table = await getTableByCode(db, data.code);
     if (table.host_id !== context.userId) throw new Error("Esa mesa no es tuya");
+    if (table.table_mode === "tournament") {
+      const { cancelTournamentByHost } = await import("./tournament.server");
+      await cancelTournamentByHost(db, table, context.userId);
+    }
     // Reclamar el cierre primero evita que el proceso automático y el manual
     // devuelvan las mismas fichas dos veces.
     const { data: claimed, error } = await db
@@ -249,7 +256,7 @@ export const closeTable = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     if (!claimed) return { ok: true };
     // Las fichas que quedaron en la mesa vuelven al banco de cada jugador.
-    await cashOutTable(db, table);
+    if (table.table_mode === "cash") await cashOutTable(db, table);
     return { ok: true };
   });
 
@@ -293,6 +300,9 @@ export const leaveTable = createServerFn({ method: "POST" })
     const { admin, getTableByCode, cashOut } = await import("./table.server");
     const db = await admin();
     const table = await getTableByCode(db, data.code);
+    if (table.table_mode === "tournament") {
+      throw new Error("En un torneo debes cancelar tu inscripción antes de comenzar");
+    }
     await cashOut(db, table, context.userId);
     const { error } = await db
       .from("table_players")
@@ -324,8 +334,13 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
     } = await import("./table.server");
 
     const db = await admin();
-    const table = await getTableByCode(db, data.code);
+    let table = await getTableByCode(db, data.code);
     if (table.status === "closed") throw new Error("Esta mesa ya está cerrada");
+    if (table.table_mode === "tournament") {
+      const { syncTournamentState } = await import("./tournament.server");
+      await syncTournamentState(db, table);
+      table = await getTableByCode(db, data.code);
+    }
     await enforceTurnTimer(db, table);
     await touchPresence(db, table.id, context.userId);
     await reconcileSeats(db, table);
@@ -356,6 +371,10 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
       players.map((p) => p.user_id),
     );
     const prefs = await profilePrefs(db, context.userId);
+    const tournament =
+      table.table_mode === "tournament"
+        ? await (await import("./tournament.server")).tournamentViewFor(db, table, context.userId)
+        : null;
     const myBank = await getBank(db, context.userId);
 
     return {
@@ -374,6 +393,7 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
         gameVariant: table.game_variant,
         specialRules: (table.special_rules ?? {}) as SpecialRules,
         isStable: table.is_stable,
+        tableMode: table.table_mode,
         minBuyin: table.min_buyin,
         maxBuyin: table.max_buyin,
       },
@@ -403,6 +423,8 @@ export const getTableSnapshot = createServerFn({ method: "POST" })
         avatarUrl: avatars[context.userId] ?? null,
         feltTheme: prefs.feltTheme,
       },
+
+      tournament,
 
       serverNow: new Date().toISOString(),
     };

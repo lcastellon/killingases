@@ -49,6 +49,7 @@ export type TableRow = {
   min_buyin: number;
   max_buyin: number;
   is_stable: boolean;
+  table_mode: "cash" | "tournament";
   created_at: string;
   updated_at: string;
 };
@@ -195,6 +196,9 @@ export async function handInProgress(db: AdminClient, tableId: string): Promise<
  */
 export async function reconcileSeats(db: AdminClient, table: TableRow) {
   if (await handInProgress(db, table.id)) return;
+  // Tournament seats are assigned at registration and eliminated players are
+  // managed by the tournament lifecycle, not by cash-table buy-in limits.
+  if (table.table_mode === "tournament") return;
   const players = await getPlayers(db, table.id);
 
   for (const p of players) {
@@ -242,6 +246,9 @@ export async function buyIn(
   amount: number,
   seat?: number | null,
 ) {
+  if (table.table_mode === "tournament") {
+    throw new Error("En los torneos debes usar el botón de inscripción");
+  }
   const wanted = Math.trunc(Number(amount));
   if (!Number.isFinite(wanted) || wanted <= 0) throw new Error("Cantidad inválida");
   await touchTableActivity(db, table.id);
@@ -296,6 +303,9 @@ export async function buyIn(
 
 /** Devuelve al banco las fichas que un jugador tiene en la mesa y libera su asiento. */
 export async function cashOut(db: AdminClient, table: TableRow, userId: string) {
+  if (table.table_mode === "tournament") {
+    throw new Error("Los puntos de torneo no pueden retirarse al banco");
+  }
   await touchTableActivity(db, table.id);
   if (await handInProgress(db, table.id))
     throw new Error("Espera a que termine la mano en curso para retirar tus fichas");
@@ -324,6 +334,14 @@ export async function cashOut(db: AdminClient, table: TableRow, userId: string) 
 /** Devuelve al banco las fichas de todos los jugadores de una mesa (al cerrarla). */
 export async function cashOutTable(db: AdminClient, table: TableRow) {
   const players = await getPlayers(db, table.id);
+  if (table.table_mode === "tournament") {
+    const { error } = await db
+      .from("table_players")
+      .update({ chips: 0, seat: null })
+      .eq("table_id", table.id);
+    if (error) throw new Error(error.message);
+    return;
+  }
   const committedByUser = new Map<string, number>();
   const latest = await loadLatestHand(db, table.id);
   if (latest) {
@@ -367,7 +385,7 @@ export async function listHostTables(db: AdminClient, hostId: string) {
   const { data, error } = await db
     .from("poker_tables")
     .select(
-      "id, code, name, status, game_variant, is_stable, small_blind, big_blind, min_buyin, max_buyin, hand_no, created_at",
+      "id, code, name, status, game_variant, is_stable, table_mode, small_blind, big_blind, min_buyin, max_buyin, hand_no, created_at",
     )
     .eq("host_id", hostId)
     .neq("status", "closed")
@@ -394,6 +412,7 @@ export async function listHostTables(db: AdminClient, hostId: string) {
     status: t.status,
     gameVariant: t.game_variant,
     isStable: t.is_stable,
+    tableMode: t.table_mode,
     smallBlind: t.small_blind,
     bigBlind: t.big_blind,
     minBuyin: t.min_buyin,
@@ -409,21 +428,24 @@ export async function listOpenTables(db: AdminClient) {
   const { data, error } = await db
     .from("poker_tables")
     .select(
-      "id, name, status, game_variant, is_stable, small_blind, big_blind, min_buyin, max_buyin, hand_no, created_at",
+      "id, name, status, game_variant, is_stable, table_mode, small_blind, big_blind, min_buyin, max_buyin, hand_no, created_at",
     )
     .neq("status", "closed")
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   const tables = data ?? [];
+  const visibleTables = tables.filter(
+    (table) => !["tournament_complete", "tournament_cancelled"].includes(table.status),
+  );
 
   const seated = new Map<string, number>();
-  if (tables.length > 0) {
+  if (visibleTables.length > 0) {
     const { data: rows, error: playersError } = await db
       .from("table_players")
       .select("table_id, seat")
       .in(
         "table_id",
-        tables.map((t) => t.id),
+        visibleTables.map((t) => t.id),
       );
     if (playersError) throw new Error(playersError.message);
     for (const row of rows ?? []) {
@@ -432,12 +454,13 @@ export async function listOpenTables(db: AdminClient) {
     }
   }
 
-  return tables.map((t) => ({
+  return visibleTables.map((t) => ({
     id: t.id,
     name: t.name,
     status: t.status,
     gameVariant: t.game_variant,
     isStable: t.is_stable,
+    tableMode: t.table_mode,
     smallBlind: t.small_blind,
     bigBlind: t.big_blind,
     minBuyin: t.min_buyin,
@@ -453,6 +476,9 @@ export async function listOpenTables(db: AdminClient) {
  * tomando las fichas de su banco global (nunca se crean fichas).
  */
 export async function rebuyChips(db: AdminClient, table: TableRow, userId: string) {
+  if (table.table_mode === "tournament") {
+    throw new Error("Usa el rebuy del torneo");
+  }
   await touchTableActivity(db, table.id);
   if (await handInProgress(db, table.id))
     throw new Error("Espera a que termine la mano en curso para recargar fichas");
@@ -488,6 +514,9 @@ export async function rebuyChips(db: AdminClient, table: TableRow, userId: strin
 /** El anfitrión devuelve al banco las fichas de todos los de la mesa. */
 export async function resetTableStacks(db: AdminClient, table: TableRow, hostId: string) {
   if (table.host_id !== hostId) throw new Error("Solo el anfitrión puede reiniciar la mesa");
+  if (table.table_mode === "tournament") {
+    throw new Error("Los puntos del torneo se administran desde el torneo");
+  }
   await touchTableActivity(db, table.id);
   if (await handInProgress(db, table.id))
     throw new Error("Espera a que termine la mano en curso para reiniciar la mesa");
@@ -520,10 +549,21 @@ export async function dealNewHand(
   userId: string,
   opts?: { auto?: boolean },
 ) {
-  await touchTableActivity(db, table.id);
-  await reconcileSeats(db, table);
-  const players = await getPlayers(db, table.id);
-  if (!opts?.auto && table.host_id !== userId) throw new Error("Solo el anfitrión puede repartir");
+  let activeTable = table;
+  let tournamentUsers: Set<string> | null = null;
+  if (table.table_mode === "tournament") {
+    const { tournamentCanDeal, tournamentEligibleUsers } = await import("./tournament.server");
+    if (!(await tournamentCanDeal(db, table))) {
+      throw new Error("El torneo aún no puede repartir la siguiente mano");
+    }
+    activeTable = await getTableByCode(db, table.code);
+    tournamentUsers = await tournamentEligibleUsers(db, table.id);
+  }
+  await touchTableActivity(db, activeTable.id);
+  await reconcileSeats(db, activeTable);
+  const players = await getPlayers(db, activeTable.id);
+  if (!opts?.auto && activeTable.host_id !== userId)
+    throw new Error("Solo el anfitrión puede repartir");
   if (opts?.auto) {
     const caller = players.find((p) => p.user_id === userId);
     if (!caller || caller.seat === null)
@@ -531,33 +571,38 @@ export async function dealNewHand(
   }
   const seated = players.filter(
     (p): p is PlayerRow & { seat: number } =>
-      p.seat !== null && !p.sitting_out && p.chips >= table.min_buyin,
+      p.seat !== null &&
+      !p.sitting_out &&
+      p.chips > 0 &&
+      (activeTable.table_mode === "tournament"
+        ? Boolean(tournamentUsers?.has(p.user_id))
+        : p.chips >= activeTable.min_buyin),
   );
   if (seated.length < 2)
     throw new Error("Se necesitan al menos 2 jugadores con la compra mínima de fichas");
 
-  const latest = await loadLatestHand(db, table.id);
+  const latest = await loadLatestHand(db, activeTable.id);
   if (latest) {
     const state = latest.public_state as unknown as HandState;
     if (!state.complete) throw new Error("La mano en curso todavía no ha terminado");
   }
 
   const seats = seated.map((p) => p.seat).sort((a, b) => a - b);
-  const previousButton = table.button_seat;
+  const previousButton = activeTable.button_seat;
   let buttonSeat = seats[0]!;
   if (previousButton !== null) {
     buttonSeat = seats.find((s) => s > previousButton) ?? seats[0]!;
   }
 
-  const handNo = table.hand_no + 1;
+  const handNo = activeTable.hand_no + 1;
   const state = startHand({
     handNo,
     buttonSeat,
-    smallBlind: table.small_blind,
-    bigBlind: table.big_blind,
-    variant: (table.game_variant as GameVariant) ?? "omaha",
-    specialRules: (table.special_rules ?? {}) as SpecialRules,
-    turnSeconds: table.turn_seconds,
+    smallBlind: activeTable.small_blind,
+    bigBlind: activeTable.big_blind,
+    variant: (activeTable.game_variant as GameVariant) ?? "omaha",
+    specialRules: (activeTable.special_rules ?? {}) as SpecialRules,
+    turnSeconds: activeTable.turn_seconds,
     seats: seated.map((p) => ({
       seat: p.seat,
       userId: p.user_id,
@@ -569,7 +614,7 @@ export async function dealNewHand(
   const { data: hand, error } = await db
     .from("hands")
     .insert({
-      table_id: table.id,
+      table_id: activeTable.id,
       hand_no: handNo,
       public_state: sanitize(state) as unknown as Json,
     })
@@ -599,10 +644,14 @@ export async function dealNewHand(
       hand_no: handNo,
       updated_at: new Date().toISOString(),
     })
-    .eq("id", table.id);
+    .eq("id", activeTable.id);
   if (tableError) throw new Error(tableError.message);
 
-  await syncChips(db, table.id, state);
+  await syncChips(db, activeTable.id, state);
+  if (state.complete && activeTable.table_mode === "tournament") {
+    const { processTournamentHand } = await import("./tournament.server");
+    await processTournamentHand(db, activeTable, state);
+  }
   return { handId: hand.id, handNo };
 }
 
@@ -624,7 +673,13 @@ export async function performAction(
   if (settleTimeouts(state)) {
     await persistHand(db, latest.id, state, table.id);
     await syncChips(db, table.id, state);
-    if (state.complete) return { complete: true, ignored: true };
+    if (state.complete) {
+      if (table.table_mode === "tournament") {
+        const { processTournamentHand } = await import("./tournament.server");
+        await processTournamentHand(db, table, state);
+      }
+      return { complete: true, ignored: true };
+    }
   }
 
   const me = state.players.find((p) => p.userId === userId);
@@ -635,6 +690,10 @@ export async function performAction(
   const next = applyAction(state, me.seat, action, amount);
   await persistHand(db, latest.id, next, table.id);
   await syncChips(db, table.id, next);
+  if (next.complete && table.table_mode === "tournament") {
+    const { processTournamentHand } = await import("./tournament.server");
+    await processTournamentHand(db, table, next);
+  }
   return { complete: next.complete, ignored: false };
 }
 
@@ -668,6 +727,10 @@ export async function enforceTurnTimer(db: AdminClient, table: TableRow) {
   if (!settleTimeouts(state)) return false;
   await persistHand(db, latest.id, state, table.id);
   await syncChips(db, table.id, state);
+  if (state.complete && table.table_mode === "tournament") {
+    const { processTournamentHand } = await import("./tournament.server");
+    await processTournamentHand(db, table, state);
+  }
   return true;
 }
 
@@ -680,7 +743,7 @@ export async function hostPanelData(db: AdminClient, hostId: string) {
   const { data: tableRows, error: tablesError } = await db
     .from("poker_tables")
     .select(
-      "id, code, name, status, game_variant, is_stable, min_buyin, max_buyin, small_blind, big_blind",
+      "id, code, name, status, game_variant, is_stable, table_mode, min_buyin, max_buyin, small_blind, big_blind",
     )
     .eq("host_id", hostId)
     .neq("status", "closed")
@@ -714,6 +777,7 @@ export async function hostPanelData(db: AdminClient, hostId: string) {
       code: t.code,
       name: t.name,
       gameVariant: t.game_variant,
+      tableMode: t.table_mode,
       isStable: t.is_stable,
       minBuyin: t.min_buyin,
       maxBuyin: t.max_buyin,
@@ -800,6 +864,10 @@ export async function saveProfilePrefs(
       .from("table_players")
       .update({ display_name: patch.displayName })
       .eq("user_id", userId);
+    await db
+      .from("tournament_entries")
+      .update({ display_name: patch.displayName })
+      .eq("user_id", userId);
   }
 }
 
@@ -817,6 +885,14 @@ export async function houseRakeStats(db: AdminClient, days = 14) {
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   const rows = data ?? [];
+  const { data: tournamentRows, error: tournamentError } = await db
+    .from("tournaments")
+    .select("house_fee_total");
+  if (tournamentError) throw new Error(tournamentError.message);
+  const tournamentFees = (tournamentRows ?? []).reduce(
+    (sum, tournament) => sum + tournament.house_fee_total,
+    0,
+  );
 
   const byDay = new Map<string, RakeDay>();
   for (const row of rows) {
@@ -837,5 +913,6 @@ export async function houseRakeStats(db: AdminClient, days = 14) {
     today: byDay.get(today) ?? { day: today, hands: 0, rake: 0, pot: 0 },
     totalRake: daily.reduce((s, d) => s + d.rake, 0),
     totalHands: daily.reduce((s, d) => s + d.hands, 0),
+    tournamentFees,
   };
 }

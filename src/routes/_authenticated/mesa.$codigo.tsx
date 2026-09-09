@@ -17,6 +17,7 @@ import {
 import { gameVariantLabel, holeCardCount, legalActions, type HandState } from "@/lib/poker/engine";
 import { type SeatView } from "@/components/poker/Seat";
 import { PokerTable } from "@/components/poker/PokerTable";
+import { TournamentInfo } from "@/components/poker/TournamentInfo";
 
 import { ActionBar } from "@/components/poker/ActionBar";
 import { useTableRealtime } from "@/hooks/useTableRealtime";
@@ -27,6 +28,13 @@ import { TableChat } from "@/components/poker/TableChat";
 import { ReactionPicker } from "@/components/poker/ReactionPicker";
 import { useTableReactions } from "@/hooks/useTableReactions";
 import { applyFeltTheme } from "@/lib/poker/theme";
+import {
+  declineTournamentRebuy,
+  rebuyTournament,
+  registerTournament,
+  startTournament,
+  unregisterTournament,
+} from "@/lib/poker/tournament.functions";
 
 export const Route = createFileRoute("/_authenticated/mesa/$codigo")({
   head: ({ params }) => ({
@@ -64,6 +72,11 @@ function TableRoom() {
   const buy = useServerFn(buyInTable);
   const rebuy = useServerFn(rebuyTable);
   const resetChips = useServerFn(resetTable);
+  const registerForTournament = useServerFn(registerTournament);
+  const unregisterFromTournament = useServerFn(unregisterTournament);
+  const rebuyInTournament = useServerFn(rebuyTournament);
+  const declineRebuy = useServerFn(declineTournamentRebuy);
+  const beginTournament = useServerFn(startTournament);
   const [busy, setBusy] = useState(false);
   const [buyin, setBuyin] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -110,9 +123,25 @@ function TableRoom() {
   useEffect(() => {
     if (!data) return;
     const table = data.table;
+    const activeTournamentUsers = new Set(
+      data.tournament?.entries
+        .filter((entry) => entry.status === "active")
+        .map((entry) => entry.userId) ?? [],
+    );
     const eligible = data.players
-      .filter((p) => p.seat !== null && p.chips >= table.minBuyin)
+      .filter(
+        (p) =>
+          p.seat !== null &&
+          (data.tournament
+            ? p.chips > 0 && activeTournamentUsers.has(p.userId)
+            : p.chips >= table.minBuyin),
+      )
       .sort((a, b) => (a.seat as number) - (b.seat as number));
+    if (
+      data.tournament &&
+      (data.tournament.status !== "running" || data.tournament.hasPendingRebuys)
+    )
+      return;
     const overNow = !data.hand || data.hand.complete;
     if (!overNow || eligible.length < 2) return;
     // Un solo cliente reparte para evitar carreras: el asiento más bajo.
@@ -214,21 +243,38 @@ function TableRoom() {
   }
 
   const amSeated = data.me.seat !== null;
+  const isTournament = data.table.tableMode === "tournament" && data.tournament !== null;
   const amAtTable = data.players.some((p) => p.userId === data.me.userId);
   const seatedPlayers = data.players.filter((p) => p.seat !== null);
   const handOver = !hand || hand.complete;
-  const eligiblePlayers = seatedPlayers.filter((p) => p.chips >= data.table.minBuyin);
-  const brokePlayers = seatedPlayers.filter((p) => p.chips < data.table.minBuyin);
+  const activeTournamentUsers = new Set(
+    data.tournament?.entries
+      .filter((entry) => entry.status === "active")
+      .map((entry) => entry.userId) ?? [],
+  );
+  const eligiblePlayers = seatedPlayers.filter((p) =>
+    isTournament
+      ? p.chips > 0 && activeTournamentUsers.has(p.userId)
+      : p.chips >= data.table.minBuyin,
+  );
+  const brokePlayers = isTournament
+    ? []
+    : seatedPlayers.filter((p) => p.chips < data.table.minBuyin);
   const rebuyTarget = Math.min(
     data.table.maxBuyin,
     Math.max(data.table.minBuyin, data.table.startingChips),
   );
-  const waitingForPlayers = handOver && eligiblePlayers.length < 2 && (hand?.handNo ?? 0) > 0;
-  const iAmBroke = data.me.chips < data.table.minBuyin;
+  const waitingForPlayers =
+    handOver &&
+    eligiblePlayers.length < 2 &&
+    (hand?.handNo ?? 0) > 0 &&
+    (!isTournament || data.tournament?.status === "running");
+  const iAmBroke = !isTournament && data.me.chips < data.table.minBuyin;
   const takenSeats = new Set(seatedPlayers.map((p) => p.seat as number));
   const freeSeats = Array.from({ length: 8 }, (_, i) => i).filter((s) => !takenSeats.has(s));
   const maxBuyinForMe = Math.min(data.table.maxBuyin, data.me.bankChips);
-  const canSitDown = !amSeated && freeSeats.length > 0 && maxBuyinForMe >= data.table.minBuyin;
+  const canSitDown =
+    !isTournament && !amSeated && freeSeats.length > 0 && maxBuyinForMe >= data.table.minBuyin;
   const openSeatDialog = (seat: number) => {
     setSeatTarget(seat);
     setBuyin(
@@ -280,6 +326,11 @@ function TableRoom() {
           <span className="truncate">
             {data.table.smallBlind}/{data.table.bigBlind} ·{" "}
             {gameVariantLabel(data.table.gameVariant)}
+            {isTournament && (
+              <span className="ml-2 rounded-full border border-chip-red/60 px-1.5 py-0.5 text-[0.55rem] uppercase tracking-wide text-chip-red">
+                Torneo
+              </span>
+            )}
             {data.table.isStable && (
               <span className="ml-2 rounded-full border border-primary/50 px-1.5 py-0.5 text-[0.55rem] uppercase tracking-wide text-primary">
                 Estable
@@ -298,6 +349,22 @@ function TableRoom() {
           )}
         </div>
 
+        {data.tournament && (
+          <TournamentInfo
+            tournament={data.tournament}
+            bankChips={data.me.bankChips}
+            isHost={data.me.isHost}
+            busy={busy}
+            onRegister={() => void run(() => registerForTournament({ data: { code: codigo } }))}
+            onUnregister={() =>
+              void run(() => unregisterFromTournament({ data: { code: codigo } }))
+            }
+            onStart={() => void run(() => beginTournament({ data: { code: codigo } }))}
+            onRebuy={() => void run(() => rebuyInTournament({ data: { code: codigo } }))}
+            onDeclineRebuy={() => void run(() => declineRebuy({ data: { code: codigo } }))}
+          />
+        )}
+
         {/* Mesa */}
         <PokerTable
           seats={seats}
@@ -307,11 +374,11 @@ function TableRoom() {
           handComplete={hand?.complete ?? false}
           reactionsBySeat={tableReactions.reactionsBySeat}
           onAvatarClick={() => setSettingsOpen(true)}
-          onEmptySeatClick={!amSeated ? (seat) => openSeatDialog(seat) : undefined}
+          onEmptySeatClick={!isTournament && !amSeated ? (seat) => openSeatDialog(seat) : undefined}
         />
 
         {/* Sentarse en un asiento libre */}
-        {seatTarget !== null && (
+        {!isTournament && seatTarget !== null && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur">
             <div className="w-full max-w-sm rounded-2xl border border-brass-soft/50 bg-card p-4 shadow-table">
               <h2 className="font-display text-xl tracking-wide text-primary">
@@ -416,7 +483,7 @@ function TableRoom() {
         )}
 
         {/* Mis fichas */}
-        {
+        {!isTournament && (
           <section className="mt-2 rounded-2xl border border-brass-soft/40 bg-card/80 p-2.5 sm:mt-4 sm:p-3">
             <div className="flex items-center justify-between gap-3">
               {amSeated ? (
@@ -472,10 +539,31 @@ function TableRoom() {
               </button>
             )}
           </section>
-        }
+        )}
+
+        {isTournament && amSeated && (
+          <section className="mt-2 flex items-center justify-between rounded-2xl border border-brass-soft/40 bg-card/80 p-3">
+            <div>
+              <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+                Puntos del torneo
+              </p>
+              <p className="tabular font-display text-2xl text-primary">
+                {data.me.chips.toLocaleString("es-MX")}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
+                Banco del club
+              </p>
+              <p className="tabular font-display text-xl text-brass">
+                {data.me.bankChips.toLocaleString("es-MX")}
+              </p>
+            </div>
+          </section>
+        )}
 
         {/* Espectadores */}
-        {spectators.length > 0 && (
+        {!isTournament && spectators.length > 0 && (
           <section className="mt-3 rounded-2xl border border-border/50 bg-card/50 p-3">
             <h2 className="text-sm text-muted-foreground">Esperando fichas</h2>
             <ul className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
@@ -556,7 +644,7 @@ function TableRoom() {
             </div>
           )}
 
-          {!amSeated && (
+          {!isTournament && !amSeated && (
             <div className="space-y-1">
               <button
                 type="button"
@@ -586,7 +674,7 @@ function TableRoom() {
             </p>
           )}
 
-          {data.me.isHost && handOver && brokePlayers.length > 0 && (
+          {!isTournament && data.me.isHost && handOver && brokePlayers.length > 0 && (
             <div className="rounded-xl border border-chip-red/50 bg-card/70 p-3 text-center">
               <p className="text-sm text-foreground">
                 {brokePlayers.map((p) => p.displayName).join(", ")}{" "}
@@ -603,7 +691,7 @@ function TableRoom() {
             </div>
           )}
 
-          {amSeated && handOver && iAmBroke && (
+          {!isTournament && amSeated && handOver && iAmBroke && (
             <button
               type="button"
               disabled={busy}
@@ -630,7 +718,7 @@ function TableRoom() {
         ) : null}
 
         <footer className="mt-auto pt-4 text-center sm:pt-6">
-          {amAtTable && (
+          {!isTournament && amAtTable && (
             <button
               type="button"
               disabled={busy}
