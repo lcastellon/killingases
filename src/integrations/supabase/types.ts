@@ -330,10 +330,6 @@ export type Database = {
         Args: { idle_minutes?: number }
         Returns: number
       }
-      is_at_table: {
-        Args: { _table_id: string; _user_id: string }
-        Returns: boolean
-      }
     }
     Enums: {
       [_ in never]: never
