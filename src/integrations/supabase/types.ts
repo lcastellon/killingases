@@ -162,6 +162,7 @@ export type Database = {
           hand_no: number
           host_id: string
           id: string
+          is_stable: boolean
           max_buyin: number
           min_buyin: number
           name: string
@@ -181,6 +182,7 @@ export type Database = {
           hand_no?: number
           host_id: string
           id?: string
+          is_stable?: boolean
           max_buyin?: number
           min_buyin?: number
           name?: string
@@ -200,6 +202,7 @@ export type Database = {
           hand_no?: number
           host_id?: string
           id?: string
+          is_stable?: boolean
           max_buyin?: number
           min_buyin?: number
           name?: string
@@ -288,6 +291,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      close_inactive_poker_tables: {
+        Args: { idle_minutes?: number }
+        Returns: number
+      }
       is_at_table: {
         Args: { _table_id: string; _user_id: string }
         Returns: boolean
