@@ -379,9 +379,26 @@ export async function closeInactiveTables(db: AdminClient) {
   return data ?? 0;
 }
 
+/** Mínimo entre limpiezas: evita que cada refresco pague el coste del barrido. */
+const CLEANUP_MIN_INTERVAL_MS = 60_000;
+let lastCleanupAt = 0;
+
+/**
+ * Lanza la limpieza sin bloquear la respuesta y como máximo una vez por minuto.
+ * La devolución de fichas sigue ocurriendo dentro de close_inactive_poker_tables.
+ */
+export function scheduleInactiveTablesCleanup(db: AdminClient) {
+  const now = Date.now();
+  if (now - lastCleanupAt < CLEANUP_MIN_INTERVAL_MS) return;
+  lastCleanupAt = now;
+  void closeInactiveTables(db).catch((error) => {
+    console.error("[poker] limpieza de mesas inactivas falló", error);
+  });
+}
+
 /** Tables the host has open, for the permanent lobby list. */
 export async function listHostTables(db: AdminClient, hostId: string) {
-  await closeInactiveTables(db);
+  scheduleInactiveTablesCleanup(db);
   const { data, error } = await db
     .from("poker_tables")
     .select(
@@ -424,7 +441,7 @@ export async function listHostTables(db: AdminClient, hostId: string) {
 
 /** Mesas abiertas del club, visibles para invitados (sin exponer el código). */
 export async function listOpenTables(db: AdminClient) {
-  await closeInactiveTables(db);
+  scheduleInactiveTablesCleanup(db);
   const { data, error } = await db
     .from("poker_tables")
     .select(
@@ -739,23 +756,27 @@ export async function enforceTurnTimer(db: AdminClient, table: TableRow) {
  * they are sitting at (with chip counts) across all of the host's open tables.
  */
 export async function hostPanelData(db: AdminClient, hostId: string) {
-  await closeInactiveTables(db);
-  const { data: tableRows, error: tablesError } = await db
-    .from("poker_tables")
-    .select(
-      "id, code, name, status, game_variant, is_stable, table_mode, min_buyin, max_buyin, small_blind, big_blind",
-    )
-    .eq("host_id", hostId)
-    .neq("status", "closed")
-    .order("created_at", { ascending: false });
-  if (tablesError) throw new Error(tablesError.message);
-  const tables = tableRows ?? [];
+  scheduleInactiveTablesCleanup(db);
+  // Mesas y perfiles no dependen entre sí: se piden en paralelo.
+  const [tablesResult, profilesResult] = await Promise.all([
+    db
+      .from("poker_tables")
+      .select(
+        "id, code, name, status, game_variant, is_stable, table_mode, min_buyin, max_buyin, small_blind, big_blind",
+      )
+      .eq("host_id", hostId)
+      .neq("status", "closed")
+      .order("created_at", { ascending: false }),
+    db
+      .from("profiles")
+      .select("id, display_name, created_at, bank_chips")
+      .order("created_at", { ascending: true }),
+  ]);
+  if (tablesResult.error) throw new Error(tablesResult.error.message);
+  if (profilesResult.error) throw new Error(profilesResult.error.message);
+  const tables = tablesResult.data ?? [];
+  const profileRows = profilesResult.data;
 
-  const { data: profileRows, error: profilesError } = await db
-    .from("profiles")
-    .select("id, display_name, created_at, bank_chips")
-    .order("created_at", { ascending: true });
-  if (profilesError) throw new Error(profilesError.message);
 
   let seats: { table_id: string; user_id: string; chips: number; seat: number | null }[] = [];
   if (tables.length > 0) {

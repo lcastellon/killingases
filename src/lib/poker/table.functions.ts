@@ -486,9 +486,14 @@ export const getHostPanel = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     assertHostClaims(context.claims);
-    const { admin, hostPanelData } = await import("./table.server");
+    const { admin, hostPanelData, houseRakeStats } = await import("./table.server");
     const db = await admin();
-    return hostPanelData(db, context.userId);
+    // Una sola petición trae jugadores, mesas y comisión de la casa.
+    const [panel, stats] = await Promise.all([
+      hostPanelData(db, context.userId),
+      houseRakeStats(db),
+    ]);
+    return { ...panel, stats };
   });
 
 export const addPlayerToTable = createServerFn({ method: "POST" })

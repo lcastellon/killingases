@@ -1,13 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import {
   addPlayerToTable,
   getHostPanel,
-  getHouseStats,
   setPlayerChips,
 } from "@/lib/poker/table.functions";
 import { gameVariantLabel } from "@/lib/poker/engine";
@@ -58,17 +57,14 @@ function HostPanel() {
   const query = useQuery({
     queryKey: ["host-panel"],
     queryFn: () => panel({}),
-    refetchInterval: 5000,
-  });
-
-  const houseStats = useServerFn(getHouseStats);
-  const stats = useQuery({
-    queryKey: ["house-stats"],
-    queryFn: () => houseStats({}),
-    refetchInterval: 15000,
+    // Un solo viaje al servidor: jugadores, mesas y comisión juntos.
+    refetchInterval: 10000,
+    refetchIntervalInBackground: false,
+    placeholderData: keepPreviousData,
   });
 
   const data = query.data;
+  const stats = { data: data?.stats };
   const tables = data?.tables ?? [];
 
   useEffect(() => {
@@ -201,7 +197,16 @@ function HostPanel() {
           className="mt-4 w-full rounded-lg border border-input bg-background px-3 py-2 text-base text-foreground outline-none focus:border-brass"
         />
 
-        {query.isLoading && <p className="mt-6 text-sm text-muted-foreground">Cargando…</p>}
+        {query.isPending && (
+          <ul className="mt-6 space-y-3" aria-hidden>
+            {[0, 1, 2, 3].map((i) => (
+              <li
+                key={i}
+                className="h-24 animate-pulse rounded-2xl border border-brass-soft/30 bg-card/50"
+              />
+            ))}
+          </ul>
+        )}
 
         <ul className="mt-6 space-y-3">
           {players.map((p) => {
