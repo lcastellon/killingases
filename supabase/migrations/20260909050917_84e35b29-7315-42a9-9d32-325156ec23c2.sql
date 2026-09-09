@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.close_inactive_poker_tables(integer) FROM anon, authenticated;
