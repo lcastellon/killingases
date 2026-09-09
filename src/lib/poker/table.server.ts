@@ -379,6 +379,23 @@ export async function closeInactiveTables(db: AdminClient) {
   return data ?? 0;
 }
 
+/** Mínimo entre limpiezas: evita que cada refresco pague el coste del barrido. */
+const CLEANUP_MIN_INTERVAL_MS = 60_000;
+let lastCleanupAt = 0;
+
+/**
+ * Lanza la limpieza sin bloquear la respuesta y como máximo una vez por minuto.
+ * La devolución de fichas sigue ocurriendo dentro de close_inactive_poker_tables.
+ */
+export function scheduleInactiveTablesCleanup(db: AdminClient) {
+  const now = Date.now();
+  if (now - lastCleanupAt < CLEANUP_MIN_INTERVAL_MS) return;
+  lastCleanupAt = now;
+  void closeInactiveTables(db).catch((error) => {
+    console.error("[poker] limpieza de mesas inactivas falló", error);
+  });
+}
+
 /** Tables the host has open, for the permanent lobby list. */
 export async function listHostTables(db: AdminClient, hostId: string) {
   await closeInactiveTables(db);
