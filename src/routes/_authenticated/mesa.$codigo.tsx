@@ -555,7 +555,7 @@ function TableRoom() {
                   key={c}
                   card={c}
                   size="lg"
-                  className={data.myCards.length > 4 ? "w-12 sm:w-16" : undefined}
+                  className={(data.myCards?.length ?? 0) > 4 ? "w-12 sm:w-16" : undefined}
                 />
               ))}
             </div>
