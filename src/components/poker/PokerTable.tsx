@@ -111,7 +111,7 @@ export function PokerTable({
           return (
             <div
               key={slot.view ? `p-${slot.view.seat}` : `empty-${slot.seatNo}`}
-              className="absolute -translate-x-1/2 -translate-y-1/2"
+              className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
               style={
                 {
                   left: `${pos.x}%`,

@@ -126,14 +126,14 @@ export function SeatPill({
         ) : null}
       </div>
       {cardsBelow && view.cardCount > 0 && (
-        <div className="flex items-center">
+        <div className="flex items-center gap-1 rounded-xl border border-brass/50 bg-background/55 p-1.5 shadow-chip backdrop-blur-sm">
           {Array.from({ length: view.cardCount }).map((_, i) => (
             <PlayingCard
               key={`${deal?.handNo ?? "still"}-${i}`}
-              size="sm"
+              size="hand"
               card={view.cards?.[i] ?? null}
               dimmed={view.folded}
-              className={cn(i > 0 && "-ml-3 sm:-ml-4", cardMotion(i).className)}
+              className={cn("ring-1 ring-brass-soft/60", cardMotion(i).className)}
               style={cardMotion(i).style}
             />
           ))}

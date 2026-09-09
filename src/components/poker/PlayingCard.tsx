@@ -2,11 +2,12 @@ import { cardLabel, isRed, SUIT_SYMBOL, suitOf } from "@/lib/poker/cards";
 import { cn } from "@/lib/utils";
 import type { CSSProperties } from "react";
 
-type Size = "sm" | "md" | "lg";
+type Size = "sm" | "md" | "hand" | "lg";
 
 const SIZES: Record<Size, string> = {
   sm: "h-8 w-6 text-[0.6rem] rounded-[0.25rem] sm:h-11 sm:w-8 sm:text-[0.7rem] sm:rounded-[0.3rem]",
   md: "h-12 w-8 text-xs rounded sm:h-16 sm:w-11 sm:text-sm sm:rounded-md",
+  hand: "h-[3.6rem] w-10 text-sm rounded-md sm:h-[4.75rem] sm:w-[3.4rem] sm:text-base sm:rounded-lg",
   lg: "h-20 w-14 text-base rounded-md sm:h-24 sm:w-[4.25rem] sm:text-lg sm:rounded-lg",
 };
 
@@ -55,9 +56,11 @@ export function PlayingCard({
           "font-display leading-none",
           size === "lg"
             ? "text-xl sm:text-2xl"
-            : size === "md"
-              ? "text-base sm:text-lg"
-              : "text-xs sm:text-base",
+            : size === "hand"
+              ? "text-lg sm:text-xl"
+              : size === "md"
+                ? "text-base sm:text-lg"
+                : "text-xs sm:text-base",
           red ? "text-card-ink-red" : "text-card-ink",
         )}
       >

@@ -16,8 +16,6 @@ import {
   type TableSnapshot,
 } from "@/lib/poker/table.functions";
 import { gameVariantLabel, holeCardCount, legalActions, type HandState } from "@/lib/poker/engine";
-import { evaluateOmaha } from "@/lib/poker/cards";
-import { PlayingCard } from "@/components/poker/PlayingCard";
 import { type SeatView } from "@/components/poker/Seat";
 import { PokerTable } from "@/components/poker/PokerTable";
 
@@ -176,11 +174,6 @@ function TableRoom() {
     if (!hand || data?.me.seat === null || data?.me.seat === undefined) return null;
     return legalActions(hand as unknown as HandState, data.me.seat);
   }, [hand, data?.me.seat]);
-
-  const myBest = useMemo(() => {
-    if (!data?.myCards || !hand || hand.board.length < 3) return null;
-    return evaluateOmaha(data.myCards, hand.board);
-  }, [data?.myCards, hand]);
 
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -545,30 +538,6 @@ function TableRoom() {
                 </li>
               ))}
             </ul>
-          </section>
-        )}
-
-        {/* Mis cartas */}
-        {data.myCards && (
-          <section className="mt-2 flex items-end justify-between rounded-2xl border border-brass-soft/40 bg-card/80 p-2.5 sm:mt-4 sm:p-3">
-            <div className="flex gap-1 sm:gap-2">
-              {data.myCards.map((c) => (
-                <PlayingCard
-                  key={c}
-                  card={c}
-                  size="lg"
-                  className={(data.myCards?.length ?? 0) > 4 ? "w-12 sm:w-16" : undefined}
-                />
-              ))}
-            </div>
-            <div className="text-right">
-              <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
-                Tu mano
-              </p>
-              <p className="font-display text-base text-primary sm:text-xl">
-                {myBest?.name ?? gameVariantLabel(data.table.gameVariant)}
-              </p>
-            </div>
           </section>
         )}
 
