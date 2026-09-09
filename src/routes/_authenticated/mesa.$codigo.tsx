@@ -23,6 +23,7 @@ import { useTableRealtime } from "@/hooks/useTableRealtime";
 import { TurnTimer } from "@/components/poker/TurnTimer";
 import { Showdown } from "@/components/poker/Showdown";
 import { PlayerSettings } from "@/components/poker/PlayerSettings";
+import { TableChat } from "@/components/poker/TableChat";
 import { applyFeltTheme } from "@/lib/poker/theme";
 
 export const Route = createFileRoute("/_authenticated/mesa/$codigo")({
@@ -605,6 +606,8 @@ function TableRoom() {
             </button>
           )}
         </section>
+
+        <TableChat tableId={data.table.id} code={codigo} currentUserId={data.me.userId} />
 
         {/* Historial */}
         {hand?.log?.length ? (
