@@ -67,7 +67,6 @@ function TableRoom() {
   const [buyin, setBuyin] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [seatTarget, setSeatTarget] = useState<number | null>(null);
-  const [finalDismissed, setFinalDismissed] = useState(false);
 
   const query = useQuery({
     // Versionamos la llave para no reutilizar snapshots antiguos creados antes
@@ -217,17 +216,15 @@ function TableRoom() {
   const seatedPlayers = data.players.filter((p) => p.seat !== null);
   const seatedCount = seatedPlayers.length;
   const handOver = !hand || hand.complete;
-  const brokePlayers = seatedPlayers.filter((p) => p.chips < data.table.bigBlind);
+  const eligiblePlayers = seatedPlayers.filter((p) => p.chips >= data.table.minBuyin);
+  const brokePlayers = seatedPlayers.filter((p) => p.chips < data.table.minBuyin);
   const rebuyTarget = Math.min(
     data.table.maxBuyin,
     Math.max(data.table.minBuyin, data.table.startingChips),
   );
-  const canDeal = data.me.isHost && handOver && seatedCount >= 2 && brokePlayers.length === 0;
-  const withChips = data.players.filter((p) => p.chips >= data.table.bigBlind);
-  const gameOver =
-    handOver && data.players.length >= 2 && withChips.length <= 1 && (hand?.handNo ?? 0) > 0;
-  const overallWinner = withChips[0] ?? null;
-  const iAmBroke = data.me.chips < data.table.bigBlind;
+  const canDeal = data.me.isHost && handOver && eligiblePlayers.length >= 2;
+  const waitingForPlayers = handOver && eligiblePlayers.length < 2 && (hand?.handNo ?? 0) > 0;
+  const iAmBroke = data.me.chips < data.table.minBuyin;
   const takenSeats = new Set(seatedPlayers.map((p) => p.seat as number));
   const freeSeats = Array.from({ length: 8 }, (_, i) => i).filter((s) => !takenSeats.has(s));
   const maxBuyinForMe = Math.min(data.table.maxBuyin, data.me.bankChips);
@@ -417,57 +414,6 @@ function TableRoom() {
           </div>
         )}
 
-        {/* Partida terminada */}
-        {gameOver && !finalDismissed && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur">
-            <div className="w-full max-w-sm rounded-2xl border border-brass bg-card p-5 text-center shadow-table">
-              <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">
-                Partida terminada
-              </p>
-              <h2 className="mt-1 font-display text-2xl tracking-wide text-primary">
-                {overallWinner
-                  ? `${overallWinner.displayName} ganó todas las fichas`
-                  : "Ya no hay fichas en juego"}
-              </h2>
-              <div className="mt-4 space-y-2">
-                {data.me.isHost && (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void run(() => resetChips({ data: { code: codigo } }))}
-                    className="w-full rounded-xl bg-primary py-3 font-display tracking-wide text-primary-foreground disabled:opacity-50"
-                  >
-                    Revancha (reiniciar fichas)
-                  </button>
-                )}
-                {amAtTable && iAmBroke && (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void run(() => rebuy({ data: { code: codigo } }))}
-                    className="w-full rounded-xl border border-brass bg-felt-deep/60 py-3 font-display tracking-wide text-primary disabled:opacity-50"
-                  >
-                    Recargar fichas ({rebuyTarget.toLocaleString("es-MX")})
-                  </button>
-                )}
-                <Link
-                  to="/"
-                  className="block w-full rounded-xl border border-border/60 py-3 text-sm text-muted-foreground"
-                >
-                  Volver al inicio
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => setFinalDismissed(true)}
-                  className="w-full py-1 text-xs text-muted-foreground underline"
-                >
-                  Seguir viendo la mesa
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Mis fichas */}
         {
           <section className="mt-2 rounded-2xl border border-brass-soft/40 bg-card/80 p-2.5 sm:mt-4 sm:p-3">
@@ -592,6 +538,19 @@ function TableRoom() {
             </div>
           )}
 
+          {waitingForPlayers && (
+            <div className="rounded-xl border border-brass-soft/50 bg-card/80 p-3 text-center">
+              <p className="text-[0.65rem] uppercase tracking-widest text-primary">Mesa en pausa</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {iAmBroke
+                  ? "Recarga tus fichas para volver a jugar, o espera a que lleguen más jugadores."
+                  : brokePlayers.length > 0
+                    ? `Esperando a que ${brokePlayers.map((p) => p.displayName).join(", ")} recargue o llegue otro jugador.`
+                    : "Esperando a que llegue otro jugador con fichas suficientes."}
+              </p>
+            </div>
+          )}
+
           {!amSeated && (
             <div className="space-y-1">
               <button
@@ -657,7 +616,7 @@ function TableRoom() {
             </button>
           )}
 
-          {!data.me.isHost && handOver && amSeated && brokePlayers.length === 0 && (
+          {!data.me.isHost && handOver && amSeated && !iAmBroke && eligiblePlayers.length >= 2 && (
             <p className="text-center text-xs text-muted-foreground">
               El anfitrión reparte la siguiente mano.
             </p>
