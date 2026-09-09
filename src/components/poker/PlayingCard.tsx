@@ -1,5 +1,6 @@
 import { cardLabel, isRed, SUIT_SYMBOL, suitOf } from "@/lib/poker/cards";
 import { cn } from "@/lib/utils";
+import type { CSSProperties } from "react";
 
 type Size = "sm" | "md" | "lg";
 
@@ -14,11 +15,13 @@ export function PlayingCard({
   size = "md",
   className,
   dimmed,
+  style,
 }: {
   card?: string | null | undefined;
   size?: Size | undefined;
   className?: string | undefined;
   dimmed?: boolean | undefined;
+  style?: CSSProperties | undefined;
 }) {
   if (!card) {
     return (
@@ -29,6 +32,7 @@ export function PlayingCard({
           SIZES[size],
           className,
         )}
+        style={style}
       >
         <span className="font-display text-brass-soft/70">MA</span>
       </div>
@@ -44,6 +48,7 @@ export function PlayingCard({
         dimmed && "opacity-45",
         className,
       )}
+      style={style}
     >
       <span
         className={cn(

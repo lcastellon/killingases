@@ -1,31 +1,45 @@
 import { PlayingCard } from "./PlayingCard";
+import { ChipStack } from "./ChipStack";
 import { cn } from "@/lib/utils";
 import type { SeatView } from "./Seat";
+import type { CSSProperties } from "react";
 
 /** Compact seat plate used around the oval table (StarsWorld-style layout). */
 export function SeatPill({
   view,
   onAvatarClick,
   cardsBelow,
+  deal,
 }: {
   view: SeatView;
   onAvatarClick?: (() => void) | undefined;
   cardsBelow?: boolean | undefined;
+  deal?: { handNo: number; playerOrder: number; playerCount: number } | undefined;
 }) {
+  const cardMotion = (cardIndex: number) =>
+    deal
+      ? {
+          className: "card-deal-in",
+          style: {
+            "--deal-delay": `${(cardIndex * deal.playerCount + deal.playerOrder) * 70}ms`,
+            "--deal-rotate": `${deal.playerOrder % 2 === 0 ? -10 : 10}deg`,
+          } as CSSProperties,
+        }
+      : { className: undefined, style: undefined };
+
   return (
-    <div
-      className={cn("flex flex-col items-center gap-1")}
-    >
+    <div className={cn("flex flex-col items-center gap-1")}>
       {/* cartas: en el asiento local van debajo para no tapar la mesa */}
       {!cardsBelow && view.cardCount > 0 && (
         <div className="flex items-center">
           {Array.from({ length: view.cardCount }).map((_, i) => (
             <PlayingCard
-              key={i}
+              key={`${deal?.handNo ?? "still"}-${i}`}
               size="sm"
               card={view.cards?.[i] ?? null}
               dimmed={view.folded}
-              className={i > 0 ? "-ml-3 sm:-ml-4" : undefined}
+              className={cn(i > 0 && "-ml-3 sm:-ml-4", cardMotion(i).className)}
+              style={cardMotion(i).style}
             />
           ))}
         </div>
@@ -84,14 +98,16 @@ export function SeatPill({
         </div>
       </div>
 
-      <div
-        className={cn(
-          "flex min-h-[1rem] max-w-[10rem] flex-col items-center text-center",
-        )}
-      >
+      <div className={cn("flex min-h-[1rem] max-w-[10rem] flex-col items-center text-center")}>
         {view.bet > 0 && (
-          <span className="tabular rounded-full border border-brass-soft/50 bg-card/90 px-2 text-[0.65rem] text-primary">
-            {view.bet.toLocaleString("es-MX")}
+          <span
+            key={`${view.seat}-${view.bet}`}
+            className="bet-chips-enter flex items-center gap-1 rounded-full border border-brass-soft/50 bg-card/90 px-1.5 py-0.5"
+          >
+            <ChipStack amount={view.bet} />
+            <span className="tabular text-[0.65rem] text-primary">
+              {view.bet.toLocaleString("es-MX")}
+            </span>
           </span>
         )}
         {view.allIn && !view.folded && (
@@ -113,11 +129,12 @@ export function SeatPill({
         <div className="flex items-center">
           {Array.from({ length: view.cardCount }).map((_, i) => (
             <PlayingCard
-              key={i}
+              key={`${deal?.handNo ?? "still"}-${i}`}
               size="sm"
               card={view.cards?.[i] ?? null}
               dimmed={view.folded}
-              className={i > 0 ? "-ml-3 sm:-ml-4" : undefined}
+              className={cn(i > 0 && "-ml-3 sm:-ml-4", cardMotion(i).className)}
+              style={cardMotion(i).style}
             />
           ))}
         </div>

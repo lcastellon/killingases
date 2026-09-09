@@ -46,6 +46,10 @@
   --color-brass: var(--brass);
   --color-brass-soft: var(--brass-soft);
   --color-chip-red: var(--chip-red);
+  --color-chip-blue: var(--chip-blue);
+  --color-chip-green: var(--chip-green);
+  --color-chip-purple: var(--chip-purple);
+  --color-chip-black: var(--chip-black);
   --color-card-face: var(--card-face);
   --color-card-ink: var(--card-ink);
   --color-card-ink-red: var(--card-ink-red);
@@ -94,6 +98,10 @@
   --brass: oklch(0.78 0.13 85);
   --brass-soft: oklch(0.62 0.1 82);
   --chip-red: oklch(0.55 0.19 25);
+  --chip-blue: oklch(0.52 0.16 250);
+  --chip-green: oklch(0.52 0.14 145);
+  --chip-purple: oklch(0.52 0.17 305);
+  --chip-black: oklch(0.24 0.025 255);
   --card-face: oklch(0.97 0.012 95);
   --card-ink: oklch(0.2 0.02 260);
   --card-ink-red: oklch(0.51 0.2 26);
@@ -148,6 +156,172 @@
 
 @utility felt-surface {
   background:
-    radial-gradient(circle at 50% 35%, var(--felt) 0%, var(--felt-deep) 72%),
-    var(--felt-deep);
+    radial-gradient(circle at 50% 35%, var(--felt) 0%, var(--felt-deep) 72%), var(--felt-deep);
+}
+
+@layer components {
+  .poker-table-stage {
+    container-type: inline-size;
+  }
+
+  .chip-stack {
+    position: relative;
+    display: inline-block;
+    width: 1.55rem;
+    height: 1.05rem;
+    flex: 0 0 auto;
+  }
+
+  .casino-chip {
+    --chip-base: var(--chip-red);
+    --chip-mark: var(--card-face);
+    position: absolute;
+    left: 50%;
+    width: 0.9rem;
+    height: 0.9rem;
+    transform: translateX(-50%);
+    border-radius: 9999px;
+    border: 1px solid color-mix(in oklch, var(--chip-base) 62%, black);
+    background:
+      radial-gradient(
+        circle,
+        transparent 0 42%,
+        color-mix(in oklch, var(--chip-base) 78%, black) 43% 52%,
+        transparent 53%
+      ),
+      repeating-conic-gradient(var(--chip-mark) 0deg 8deg, var(--chip-base) 8deg 45deg);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in oklch, var(--chip-base) 58%, white),
+      0 2px 4px oklch(0 0 0 / 0.45);
+  }
+
+  .casino-chip--red {
+    --chip-base: var(--chip-red);
+  }
+  .casino-chip--blue {
+    --chip-base: var(--chip-blue);
+  }
+  .casino-chip--green {
+    --chip-base: var(--chip-green);
+  }
+  .casino-chip--purple {
+    --chip-base: var(--chip-purple);
+  }
+  .casino-chip--black {
+    --chip-base: var(--chip-black);
+  }
+
+  .card-deal-in {
+    opacity: 0;
+    animation: card-deal-in 460ms cubic-bezier(0.2, 0.85, 0.3, 1.12) forwards;
+    animation-delay: var(--deal-delay, 0ms);
+    will-change: transform, opacity;
+  }
+
+  .board-card-reveal {
+    transform-origin: center bottom;
+    animation: board-card-reveal 420ms cubic-bezier(0.22, 0.8, 0.25, 1) both;
+    animation-delay: var(--board-delay, 0ms);
+  }
+
+  .bet-chips-enter {
+    animation: bet-chips-enter 380ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+  }
+
+  .pot-chips-pop {
+    animation: pot-chips-pop 420ms cubic-bezier(0.2, 0.9, 0.3, 1.18) both;
+  }
+
+  .pot-to-winner {
+    opacity: 0;
+    animation: pot-to-winner 1050ms cubic-bezier(0.22, 0.75, 0.25, 1) 180ms forwards;
+    will-change: transform, opacity;
+  }
+}
+
+@keyframes card-deal-in {
+  0% {
+    opacity: 0;
+    transform: translate3d(var(--deal-from-x, 0), var(--deal-from-y, 0), 0) scale(0.55)
+      rotate(var(--deal-rotate, -10deg));
+  }
+  72% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes board-card-reveal {
+  0% {
+    opacity: 0;
+    transform: translateY(-0.6rem) rotateY(88deg) scale(0.86);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotateY(0deg) scale(1);
+  }
+}
+
+@keyframes bet-chips-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(-0.7rem) scale(0.72);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(0.08rem) scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pot-chips-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(-0.5rem) scale(0.6) rotate(-12deg);
+  }
+  75% {
+    opacity: 1;
+    transform: translateY(0.05rem) scale(1.12) rotate(2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0);
+  }
+}
+
+@keyframes pot-to-winner {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.55);
+  }
+  18% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+  78% {
+    opacity: 1;
+    transform: translate(calc(-50% + var(--winner-x)), calc(-50% + var(--winner-y))) scale(0.9);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--winner-x)), calc(-50% + var(--winner-y))) scale(0.7);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-deal-in,
+  .board-card-reveal,
+  .bet-chips-enter,
+  .pot-chips-pop,
+  .pot-to-winner {
+    animation: none !important;
+    opacity: 1;
+    transform: none;
+  }
 }

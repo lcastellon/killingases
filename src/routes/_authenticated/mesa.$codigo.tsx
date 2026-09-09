@@ -313,6 +313,8 @@ function TableRoom() {
           seats={seats}
           pot={hand?.pot ?? 0}
           board={hand?.board ?? []}
+          handNo={hand?.handNo}
+          handComplete={hand?.complete ?? false}
           onAvatarClick={() => setSettingsOpen(true)}
           onEmptySeatClick={!amSeated ? (seat) => openSeatDialog(seat) : undefined}
         />
