@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import {
   addPlayerToTable,
   getHostPanel,
-  getHouseStats,
   setPlayerChips,
 } from "@/lib/poker/table.functions";
 import { gameVariantLabel } from "@/lib/poker/engine";
