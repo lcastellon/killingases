@@ -197,7 +197,16 @@ function HostPanel() {
           className="mt-4 w-full rounded-lg border border-input bg-background px-3 py-2 text-base text-foreground outline-none focus:border-brass"
         />
 
-        {query.isLoading && <p className="mt-6 text-sm text-muted-foreground">Cargando…</p>}
+        {query.isPending && (
+          <ul className="mt-6 space-y-3" aria-hidden>
+            {[0, 1, 2, 3].map((i) => (
+              <li
+                key={i}
+                className="h-24 animate-pulse rounded-2xl border border-brass-soft/30 bg-card/50"
+              />
+            ))}
+          </ul>
+        )}
 
         <ul className="mt-6 space-y-3">
           {players.map((p) => {
