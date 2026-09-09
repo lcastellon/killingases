@@ -170,6 +170,7 @@ export type Database = {
           special_rules: Json
           starting_chips: number
           status: string
+          table_mode: string
           turn_seconds: number
           updated_at: string
         }
@@ -190,6 +191,7 @@ export type Database = {
           special_rules?: Json
           starting_chips?: number
           status?: string
+          table_mode?: string
           turn_seconds?: number
           updated_at?: string
         }
@@ -210,6 +212,7 @@ export type Database = {
           special_rules?: Json
           starting_chips?: number
           status?: string
+          table_mode?: string
           turn_seconds?: number
           updated_at?: string
         }
@@ -359,14 +362,195 @@ export type Database = {
           },
         ]
       }
+      tournament_entries: {
+        Row: {
+          display_name: string
+          eliminated_at: string | null
+          finish_position: number | null
+          id: string
+          paid_at: string | null
+          prize_amount: number
+          rebuys: number
+          registered_at: string
+          seat: number
+          status: string
+          total_paid: number
+          tournament_id: string
+          user_id: string
+        }
+        Insert: {
+          display_name: string
+          eliminated_at?: string | null
+          finish_position?: number | null
+          id?: string
+          paid_at?: string | null
+          prize_amount?: number
+          rebuys?: number
+          registered_at?: string
+          seat: number
+          status?: string
+          total_paid?: number
+          tournament_id: string
+          user_id: string
+        }
+        Update: {
+          display_name?: string
+          eliminated_at?: string | null
+          finish_position?: number | null
+          id?: string
+          paid_at?: string | null
+          prize_amount?: number
+          rebuys?: number
+          registered_at?: string
+          seat?: number
+          status?: string
+          total_paid?: number
+          tournament_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_entries_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tournaments: {
+        Row: {
+          allow_rebuys: boolean
+          blind_interval_minutes: number
+          blind_levels: Json
+          buy_in: number
+          completed_at: string | null
+          created_at: string
+          current_level: number
+          entries_count: number
+          format: string
+          host_id: string
+          house_fee_percent: number
+          house_fee_total: number
+          id: string
+          max_players: number
+          max_rebuys: number
+          min_players: number
+          prize_pool: number
+          prize_structure: Json
+          rebuy_until_level: number
+          registration_closes_at: string | null
+          registration_opens_at: string | null
+          remaining_players: number
+          started_at: string | null
+          starting_stack: number
+          status: string
+          table_id: string
+          updated_at: string
+          winner_user_id: string | null
+        }
+        Insert: {
+          allow_rebuys?: boolean
+          blind_interval_minutes?: number
+          blind_levels: Json
+          buy_in: number
+          completed_at?: string | null
+          created_at?: string
+          current_level?: number
+          entries_count?: number
+          format: string
+          host_id: string
+          house_fee_percent?: number
+          house_fee_total?: number
+          id?: string
+          max_players: number
+          max_rebuys?: number
+          min_players: number
+          prize_pool?: number
+          prize_structure: Json
+          rebuy_until_level?: number
+          registration_closes_at?: string | null
+          registration_opens_at?: string | null
+          remaining_players?: number
+          started_at?: string | null
+          starting_stack: number
+          status?: string
+          table_id: string
+          updated_at?: string
+          winner_user_id?: string | null
+        }
+        Update: {
+          allow_rebuys?: boolean
+          blind_interval_minutes?: number
+          blind_levels?: Json
+          buy_in?: number
+          completed_at?: string | null
+          created_at?: string
+          current_level?: number
+          entries_count?: number
+          format?: string
+          host_id?: string
+          house_fee_percent?: number
+          house_fee_total?: number
+          id?: string
+          max_players?: number
+          max_rebuys?: number
+          min_players?: number
+          prize_pool?: number
+          prize_structure?: Json
+          rebuy_until_level?: number
+          registration_closes_at?: string | null
+          registration_opens_at?: string | null
+          remaining_players?: number
+          started_at?: string | null
+          starting_stack?: number
+          status?: string
+          table_id?: string
+          updated_at?: string
+          winner_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournaments_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: true
+            referencedRelation: "poker_tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      cancel_tournament_if_registering: {
+        Args: { _tournament_id: string }
+        Returns: boolean
+      }
       close_inactive_poker_tables: {
         Args: { idle_minutes?: number }
         Returns: number
+      }
+      complete_tournament_if_ready: {
+        Args: { _tournament_id: string }
+        Returns: boolean
+      }
+      decline_tournament_rebuy: {
+        Args: { _tournament_id: string; _user_id: string }
+        Returns: boolean
+      }
+      rebuy_tournament_entry: {
+        Args: { _tournament_id: string; _user_id: string }
+        Returns: Json
+      }
+      register_tournament_entry: {
+        Args: { _tournament_id: string; _user_id: string }
+        Returns: Json
+      }
+      unregister_tournament_entry: {
+        Args: { _tournament_id: string; _user_id: string }
+        Returns: Json
       }
     }
     Enums: {
