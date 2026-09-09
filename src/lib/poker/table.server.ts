@@ -398,7 +398,7 @@ export function scheduleInactiveTablesCleanup(db: AdminClient) {
 
 /** Tables the host has open, for the permanent lobby list. */
 export async function listHostTables(db: AdminClient, hostId: string) {
-  await closeInactiveTables(db);
+  scheduleInactiveTablesCleanup(db);
   const { data, error } = await db
     .from("poker_tables")
     .select(
@@ -441,7 +441,7 @@ export async function listHostTables(db: AdminClient, hostId: string) {
 
 /** Mesas abiertas del club, visibles para invitados (sin exponer el código). */
 export async function listOpenTables(db: AdminClient) {
-  await closeInactiveTables(db);
+  scheduleInactiveTablesCleanup(db);
   const { data, error } = await db
     .from("poker_tables")
     .select(
@@ -756,7 +756,7 @@ export async function enforceTurnTimer(db: AdminClient, table: TableRow) {
  * they are sitting at (with chip counts) across all of the host's open tables.
  */
 export async function hostPanelData(db: AdminClient, hostId: string) {
-  await closeInactiveTables(db);
+  scheduleInactiveTablesCleanup(db);
   const { data: tableRows, error: tablesError } = await db
     .from("poker_tables")
     .select(
