@@ -58,17 +58,14 @@ function HostPanel() {
   const query = useQuery({
     queryKey: ["host-panel"],
     queryFn: () => panel({}),
-    refetchInterval: 5000,
-  });
-
-  const houseStats = useServerFn(getHouseStats);
-  const stats = useQuery({
-    queryKey: ["house-stats"],
-    queryFn: () => houseStats({}),
-    refetchInterval: 15000,
+    // Un solo viaje al servidor: jugadores, mesas y comisión juntos.
+    refetchInterval: 10000,
+    refetchIntervalInBackground: false,
+    placeholderData: keepPreviousData,
   });
 
   const data = query.data;
+  const stats = { data: data?.stats };
   const tables = data?.tables ?? [];
 
   useEffect(() => {
